@@ -1,79 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const ensureScheduleTables = require('../utils/scheduleTables');
+const ensureCustomerTable = require('../utils/customerTable');
+const { validateSlot, hasConflict, buildDailySlots } = require('../utils/slots');
 
-const OPENING_MINUTES = 10 * 60; // 10:00
-const CLOSING_MINUTES = 22 * 60; // 22:00
-const SLOT_DURATION = 60; // dakika
-
-const timeToMinutes = (timeString = '') => {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return NaN;
-  return hours * 60 + minutes;
-};
-
-const minutesToTime = (minutes) => {
-  const hours = String(Math.floor(minutes / 60)).padStart(2, '0');
-  const minutePart = String(minutes % 60).padStart(2, '0');
-  return `${hours}:${minutePart}`;
-};
-
-const validateSlot = (startTime) => {
-  const start = timeToMinutes(startTime);
-  const end = start + SLOT_DURATION;
-
-  if (Number.isNaN(start)) {
-    return { valid: false, message: 'Saat formatı HH:MM olmalı (örn: 10:00).' };
-  }
-
-  if (end - start !== SLOT_DURATION) {
-    return { valid: false, message: 'Her randevu 60 dakikalık olmalı.' };
-  }
-
-  if (start < OPENING_MINUTES || end > CLOSING_MINUTES) {
-    return { valid: false, message: 'Çalışma saatleri 10:00 - 22:00 arasında.' };
-  }
-
-  if ((start - OPENING_MINUTES) % SLOT_DURATION !== 0) {
-    return { valid: false, message: 'Randevular saat başı olacak şekilde ayarlanmalı (10:00, 11:00...).' };
-  }
-
-  return { valid: true, endTime: minutesToTime(end) };
-};
-
-const hasConflict = (existingAppointments, startTime, endTime) => {
-  const requestedStart = timeToMinutes(startTime);
-  const requestedEnd = timeToMinutes(endTime);
-
-  return existingAppointments.some(({ start_time: existingStart, end_time: existingEnd }) => {
-    const currentStart = timeToMinutes(String(existingStart));
-    const currentEnd = timeToMinutes(String(existingEnd));
-
-    return currentStart < requestedEnd && currentEnd > requestedStart;
-  });
-};
-
-const buildDailySlots = (appointments = []) => {
-  const slots = [];
-
-  for (let start = OPENING_MINUTES; start < CLOSING_MINUTES; start += SLOT_DURATION) {
-    const end = start + SLOT_DURATION;
-    const startTime = minutesToTime(start);
-    const endTime = minutesToTime(end);
-
-    if (!hasConflict(appointments, startTime, endTime)) {
-      slots.push({ start_time: startTime, end_time: endTime });
-    }
-  }
-
-  return slots;
-};
+ensureScheduleTables();
+ensureCustomerTable();
 
 // RANDEVU OLUŞTURMA
 router.post('/', (req, res) => {
   const { customer_id, service_id, date, start_time, products = [], notes } = req.body;
 
-  if (!customer_id || !service_id || !date || !start_time) {
+  const parsedCustomerId = Number(customer_id);
+  const parsedServiceId = Number(service_id);
+
+  if (!parsedCustomerId || !parsedServiceId || !date || !start_time) {
     return res.status(400).json({ message: 'customer_id, service_id, date ve start_time alanları zorunlu.' });
   }
 
@@ -84,55 +26,72 @@ router.post('/', (req, res) => {
 
   const end_time = validation.endTime;
 
-  const checkQuery = `
-    SELECT start_time, end_time FROM appointments
-    WHERE date = ?
-  `;
-
-  db.query(checkQuery, [date], (err, results) => {
-    if (err) return res.status(500).json({ error: err });
-
-    if (hasConflict(results, start_time, end_time)) {
-      return res.status(400).json({ message: 'Bu saat dolu, başka bir zaman seçiniz.' });
+  db.query('SELECT date FROM closed_days WHERE date = ? LIMIT 1', [date], (closedErr, closedRows) => {
+    if (closedErr) return res.status(500).json({ error: closedErr });
+    if (closedRows.length) {
+      return res.status(400).json({ message: 'Bu gün kapalı olarak işaretlenmiş.' });
     }
 
-    const insertQuery = `
-      INSERT INTO appointments (customer_id, service_id, date, start_time, end_time, status, notes)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?)
-    `;
+    db.query('SELECT start_time, end_time FROM blocked_slots WHERE date = ?', [date], (blockErr, blockedRows) => {
+      if (blockErr) return res.status(500).json({ error: blockErr });
 
-    db.query(insertQuery, [customer_id, service_id, date, start_time, end_time, notes || null], (err2, result) => {
-      if (err2) return res.status(500).json({ error: err2 });
+      const checkQuery = `
+        SELECT start_time, end_time FROM appointments
+        WHERE date = ?
+      `;
 
-      const appointmentId = result.insertId;
-      const sanitizedProducts = Array.isArray(products)
-        ? products.filter((p) => p && p.product_id).map((p) => ({
-            product_id: p.product_id,
-            quantity: Number(p.quantity) > 0 ? Number(p.quantity) : 1,
-          }))
-        : [];
+      db.query(checkQuery, [date], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
 
-      if (!sanitizedProducts.length) {
-        return res.json({
-          message: 'Randevu başarıyla eklendi!',
-          id: appointmentId,
-          start_time,
-          end_time,
-        });
-      }
+        if (hasConflict([...results, ...blockedRows], start_time, end_time)) {
+          return res.status(400).json({ message: 'Bu saat dolu veya bloke edilmiş, başka bir zaman seçiniz.' });
+        }
 
-      const productValues = sanitizedProducts.map((p) => [appointmentId, p.product_id, p.quantity]);
-      const productQuery = 'INSERT INTO appointment_products (appointment_id, product_id, quantity) VALUES ?';
+        const insertQuery = `
+          INSERT INTO appointments (customer_id, service_id, date, start_time, end_time, status, notes)
+          VALUES (?, ?, ?, ?, ?, 'pending', ?)
+        `;
 
-      db.query(productQuery, [productValues], (err3) => {
-        if (err3) return res.status(500).json({ error: err3 });
-        res.json({
-          message: 'Randevu ve ekstra ürünler eklendi!',
-          id: appointmentId,
-          start_time,
-          end_time,
-          products: sanitizedProducts,
-        });
+        db.query(
+          insertQuery,
+          [parsedCustomerId, parsedServiceId, date, start_time, end_time, notes || null],
+          (err2, result) => {
+            if (err2) return res.status(500).json({ error: err2 });
+
+            const appointmentId = result.insertId;
+            const sanitizedProducts = Array.isArray(products)
+              ? products
+                  .filter((p) => p && p.product_id)
+                  .map((p) => ({
+                    product_id: Number(p.product_id),
+                    quantity: Number(p.quantity) > 0 ? Number(p.quantity) : 1,
+                  }))
+              : [];
+
+            if (!sanitizedProducts.length) {
+              return res.json({
+                message: 'Randevu başarıyla eklendi!',
+                id: appointmentId,
+                start_time,
+                end_time,
+              });
+            }
+
+            const productValues = sanitizedProducts.map((p) => [appointmentId, p.product_id, p.quantity]);
+            const productQuery = 'INSERT INTO appointment_products (appointment_id, product_id, quantity) VALUES ?';
+
+            db.query(productQuery, [productValues], (err3) => {
+              if (err3) return res.status(500).json({ error: err3 });
+              res.json({
+                message: 'Randevu ve ekstra ürünler eklendi!',
+                id: appointmentId,
+                start_time,
+                end_time,
+                products: sanitizedProducts,
+              });
+            });
+          }
+        );
       });
     });
   });
@@ -141,9 +100,10 @@ router.post('/', (req, res) => {
 // TÜM RANDEVULARI LİSTELE (admin panel için)
 router.get('/', (req, res) => {
   const query = `
-    SELECT a.*, s.name AS service_name
+    SELECT a.*, s.name AS service_name, c.full_name AS customer_name, c.phone AS customer_phone
     FROM appointments a
     JOIN services s ON a.service_id = s.id
+    LEFT JOIN customers c ON a.customer_id = c.id
     ORDER BY a.date ASC, a.start_time ASC
   `;
 
@@ -157,9 +117,10 @@ router.get('/', (req, res) => {
 router.get('/day/:date', (req, res) => {
   const { date } = req.params;
   const query = `
-    SELECT a.*, s.name AS service_name
+    SELECT a.*, s.name AS service_name, c.full_name AS customer_name, c.phone AS customer_phone
     FROM appointments a
     JOIN services s ON a.service_id = s.id
+    LEFT JOIN customers c ON a.customer_id = c.id
     WHERE a.date = ?
     ORDER BY a.start_time ASC
   `;
@@ -178,13 +139,31 @@ router.get('/available', (req, res) => {
     return res.status(400).json({ message: 'date parametresi zorunludur (YYYY-MM-DD).' });
   }
 
-  const query = 'SELECT start_time, end_time FROM appointments WHERE date = ?';
+  db.query('SELECT date, note FROM closed_days WHERE date = ? LIMIT 1', [date], (closedErr, closedRows) => {
+    if (closedErr) return res.status(500).json({ error: closedErr });
 
-  db.query(query, [date], (err, results) => {
-    if (err) return res.status(500).json({ error: err });
+    db.query('SELECT start_time, end_time FROM blocked_slots WHERE date = ?', [date], (blockErr, blockedRows) => {
+      if (blockErr) return res.status(500).json({ error: blockErr });
 
-    const availableSlots = buildDailySlots(results);
-    res.json({ date, available_slots: availableSlots });
+      const query = 'SELECT start_time, end_time FROM appointments WHERE date = ?';
+
+      db.query(query, [date], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+
+        if (closedRows.length) {
+          return res.json({
+            date,
+            closed: true,
+            note: closedRows[0].note || null,
+            available_slots: [],
+            blocked_slots: blockedRows,
+          });
+        }
+
+        const availableSlots = buildDailySlots([...(results || []), ...(blockedRows || [])]);
+        res.json({ date, closed: false, available_slots: availableSlots, blocked_slots: blockedRows });
+      });
+    });
   });
 });
 
@@ -193,9 +172,10 @@ router.get('/detail/:id', (req, res) => {
   const { id } = req.params;
 
   const appointmentQuery = `
-    SELECT a.*, s.name AS service_name, s.price AS service_price
+    SELECT a.*, s.name AS service_name, s.price AS service_price, c.full_name AS customer_name, c.phone AS customer_phone
     FROM appointments a
     JOIN services s ON a.service_id = s.id
+    LEFT JOIN customers c ON a.customer_id = c.id
     WHERE a.id = ?
   `;
 

@@ -6,6 +6,8 @@ const appointmentsRoute = require('./routes/appointments');
 const servicesRoute = require('./routes/services');
 const productsRoute = require('./routes/products');
 const reportsRoute = require('./routes/reports');
+const customersRoute = require('./routes/customers');
+const scheduleRoute = require('./routes/schedule');
 
 const app = express();
 
@@ -16,6 +18,8 @@ app.use('/appointments', appointmentsRoute);
 app.use('/services', servicesRoute);
 app.use('/products', productsRoute);
 app.use('/reports', reportsRoute);
+app.use('/customers', customersRoute);
+app.use('/schedule', scheduleRoute);
 
 const frontendDir = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendDir));
