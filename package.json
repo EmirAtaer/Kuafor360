@@ -5,7 +5,7 @@
   "main": "Backend/server.js",
   "scripts": {
     "start": "node Backend/server.js",
-    "dev": "nodemon --watch Backend Backend/server.js"
+    "dev": "nodemon Backend/server.js"
   },
   "keywords": [],
   "author": "",
