@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kuaför360 | Randevu & Analiz Sistemi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__content">
+        <div class="hero__tag">Kuaför360</div>
+        <h1>Kuaförler için online randevu ve gelir analizi</h1>
+        <p>
+          Randevularını dijitalleştir, çakışmaları engelle, hizmet & ürün satışlarını izle.
+          Kuaför360; kuaförler için uçtan uca randevu, paket ve gelir yönetimi sunar.
+        </p>
+        <div class="hero__cta">
+          <a href="#login" class="btn primary">Giriş Yap</a>
+          <a href="#booking" class="btn ghost">Randevu Oluştur</a>
+        </div>
+      </div>
+      <div class="hero__stats">
+        <div class="stat">
+          <span id="stat-bookings">0</span>
+          <p>Bugünkü randevular</p>
+        </div>
+        <div class="stat">
+          <span id="stat-income">₺0</span>
+          <p>Günlük gelir</p>
+        </div>
+        <div class="stat">
+          <span id="stat-packages">0</span>
+          <p>Aktif paket</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="login" class="card-grid">
+        <article class="card">
+          <h2>Müşteri Girişi</h2>
+          <p>Telefon numaranla giriş yap, paketini ve ekstra ürünlerini seç.</p>
+          <form id="customer-login">
+            <label>
+              Ad Soyad
+              <input type="text" name="customerName" placeholder="Örn. Ali Yılmaz" required />
+            </label>
+            <label>
+              Telefon
+              <input type="tel" name="customerPhone" placeholder="05xx" required />
+            </label>
+            <button class="btn primary" type="submit">Müşteri Paneline Git</button>
+          </form>
+        </article>
+        <article class="card">
+          <h2>Admin Paneli</h2>
+          <p>Günlük randevuları, gelir raporlarını ve paketleri yönetin.</p>
+          <form id="admin-login">
+            <label>
+              Kullanıcı Adı
+              <input type="text" name="adminUser" placeholder="admin" required />
+            </label>
+            <label>
+              Şifre
+              <input type="password" name="adminPass" placeholder="••••••" required />
+            </label>
+            <small>Demo için şifre: <code>kuafor360</code></small>
+            <button class="btn dark" type="submit">Admin Paneline Git</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="booking" class="panel">
+        <div>
+          <p class="panel__eyebrow">Adım 1</p>
+          <h2>Müşteri randevusu oluştur</h2>
+          <p>
+            Sistem yalnızca 10:00 - 22:00 arası ve saat başı boşlukları gösterir. Randevuya ekstra ürünler ekleyebilir,
+            not girebilirsin.
+          </p>
+        </div>
+        <form id="booking-form" class="booking-form">
+          <div class="form-row">
+            <label>
+              Müşteri ID
+              <input type="number" name="customer_id" min="1" placeholder="1" required />
+            </label>
+            <label>
+              Hizmet
+              <select name="service_id" id="service-select" required>
+                <option value="">Yükleniyor...</option>
+              </select>
+            </label>
+            <label>
+              Tarih
+              <input type="date" name="date" required />
+            </label>
+          </div>
+          <div class="form-row">
+            <label>
+              Saat
+              <select name="start_time" id="slot-select" required>
+                <option value="">Önce tarih seç</option>
+              </select>
+            </label>
+            <label>
+              Not
+              <input type="text" name="notes" placeholder="Kesim öncesi kısa tutulsun" />
+            </label>
+          </div>
+          <div class="products" id="product-area">
+            <header>
+              <h3>Ekstra Ürünler</h3>
+              <button type="button" class="btn ghost" id="add-product">+ Ürün Ekle</button>
+            </header>
+            <p class="muted">Ürünleri demo amaçlı ID ve adet ile ekleyebilirsiniz.</p>
+            <div id="product-list"></div>
+          </div>
+          <button class="btn primary" type="submit">Randevuyu Kaydet</button>
+          <p class="feedback" id="booking-feedback"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div>
+          <p class="panel__eyebrow">Adım 2</p>
+          <h2>Hazır paketler ile hizmet seçimini kolaylaştır</h2>
+          <p>Müşterin gelmeden hangi işlemleri yaptıracağını bilir, kasa tarafında süreci hızlandırırsın.</p>
+        </div>
+        <div class="packages" id="package-list"></div>
+      </section>
+
+      <section class="panel">
+        <div>
+          <p class="panel__eyebrow">Adım 3</p>
+          <h2>Ekstra ürünler ile geliri artır</h2>
+          <p>Stok takibi olmadan satış kaydı tut, müşteriye bakım ürünlerini göster.</p>
+        </div>
+        <div class="extras" id="extra-list"></div>
+      </section>
+
+      <section class="panel">
+        <div>
+          <p class="panel__eyebrow">Analizler</p>
+          <h2>Hangi hizmetler revaçta? Gelir nasıl?</h2>
+        </div>
+        <div class="analytics">
+          <article>
+            <h3>Popüler Hizmetler</h3>
+            <ul id="popular-services"></ul>
+          </article>
+          <article>
+            <h3>Popüler Ürünler</h3>
+            <ul id="popular-products"></ul>
+          </article>
+          <article>
+            <h3>Yoğun Saatler</h3>
+            <ul id="peak-times"></ul>
+          </article>
+          <article>
+            <h3>Gelir Özeti</h3>
+            <table id="revenue-table">
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Hizmet</th>
+                  <th>Ürün</th>
+                  <th>Toplam</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Kuaför360 — Yerel kuaförler için dijital randevu & analiz çözümü.</p>
+    </footer>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
