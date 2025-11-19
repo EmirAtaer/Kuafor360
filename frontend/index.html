@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kuaför360 | Randevu & Analiz Sistemi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-screen="landing">
+    <div class="bg-aurora" aria-hidden="true"></div>
+    <main class="app-shell">
+      <section class="view view--landing" id="view-landing">
+        <div class="landing-grid">
+          <div class="landing-copy">
+            <p class="eyebrow">Altın Makas Stüdyosu</p>
+            <h1>Tek kuaför için çift girişli dijital randevu masası</h1>
+            <p>
+              Müşteriler hazır paketleri seçsin, Altın Makas ekibi takvimden gün/saat kapatsın. Çakışmalar otomatik
+              engellenir, herkese sadece gerekli bilgiler gösterilir.
+            </p>
+            <div class="stat-row">
+              <div>
+                <span id="stat-bookings">0</span>
+                <p>Bugünkü randevu</p>
+              </div>
+              <div>
+                <span id="stat-availability">0</span>
+                <p>Boş saat</p>
+              </div>
+              <div>
+                <span id="stat-packages">0</span>
+                <p>Aktif paket</p>
+              </div>
+            </div>
+          </div>
+          <div class="login-stack">
+            <article class="panel login-card">
+              <div>
+                <p class="eyebrow">Altın Makas Müşterisi</p>
+                <h2>Randevuya giriş</h2>
+              </div>
+              <form id="customer-login">
+                <label>
+                  Ad Soyad
+                  <input type="text" name="customerName" placeholder="Örn. Ali Yılmaz" required />
+                </label>
+                <label>
+                  Telefon
+                  <input type="tel" name="customerPhone" placeholder="05xx xxx xx xx" required />
+                </label>
+                <button class="btn primary" type="submit">Müşteri ekranına geç</button>
+              </form>
+            </article>
+            <article class="panel login-card admin">
+              <div>
+                <p class="eyebrow">Altın Makas Ekibi</p>
+                <h2>Takvimi yönet</h2>
+              </div>
+              <form id="admin-login">
+                <label>
+                  Kullanıcı Adı
+                  <input type="text" name="adminUser" placeholder="ustakuafor" required />
+                </label>
+                <label>
+                  Şifre
+                  <input type="password" name="adminPass" placeholder="••••••" required />
+                </label>
+                <small>Demo şifresi: <code>kuafor360</code></small>
+                <button class="btn dark" type="submit">Takvimi aç</button>
+              </form>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="view view--customer" id="view-customer">
+        <header class="view-header">
+          <div>
+            <p class="eyebrow">Müşteri Paneli</p>
+            <h1 id="customer-greeting">Hoş geldiniz</h1>
+            <p>Günü seç, dolu saatleri kırmızı, boşları turuncu olarak gör. Aynı ekranda paket ve ürünleri incele.</p>
+          </div>
+          <button class="btn ghost" id="customer-exit">Çıkış yap</button>
+        </header>
+        <div class="customer-layout">
+          <div class="panel schedule-panel">
+            <div class="schedule-controls">
+              <label>
+                Randevu Günü
+                <input type="date" id="customer-date" />
+              </label>
+              <div class="legend">
+                <span><i class="dot available"></i>Müsait</span>
+                <span><i class="dot booked"></i>Dolu</span>
+                <span><i class="dot blocked"></i>Blok</span>
+              </div>
+            </div>
+            <div id="customer-closed-alert" class="alert hidden"></div>
+            <div id="customer-slot-grid" class="slot-grid" role="list"></div>
+            <div class="selected-slot" id="customer-selected-slot">Henüz saat seçmediniz.</div>
+            <form id="customer-booking" class="booking-details">
+              <div class="form-grid">
+                <label>
+                  Hizmet
+                  <select id="customer-service"></select>
+                </label>
+                <label>
+                  Not
+                  <input type="text" id="customer-notes" placeholder="Örn. kısa kesim, sakal kalsın" />
+                </label>
+              </div>
+              <div id="product-selector" class="product-selector"></div>
+              <button class="btn primary" type="submit">Randevuyu oluştur</button>
+              <p class="feedback" id="customer-feedback"></p>
+            </form>
+          </div>
+          <aside class="packages-column">
+            <article class="panel small">
+              <h3>Hazır Paketler</h3>
+              <p>Saç-sakal, bakım ve renk paketleri arasından seç.</p>
+              <div id="package-list" class="package-list"></div>
+            </article>
+            <article class="panel small">
+              <h3>Öne Çıkan Ürünler</h3>
+              <p>Gelmeden önce ekstra satış önerilerini gör.</p>
+              <div id="extra-list" class="extra-list"></div>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view view--admin" id="view-admin">
+        <header class="view-header">
+          <div>
+            <p class="eyebrow">Admin Paneli</p>
+            <h1>Takvimi kapat, saatleri blokla</h1>
+            <p>Yoğun saatleri tek tıkla bloke et, tatil günlerini kapat ve analiz kartlarından trendleri izle.</p>
+          </div>
+          <button class="btn ghost" id="admin-exit">Çıkış yap</button>
+        </header>
+        <div class="admin-layout">
+          <div class="panel schedule-panel">
+            <div class="schedule-controls">
+              <label>
+                Yönetilen Gün
+                <input type="date" id="admin-date" />
+              </label>
+              <div class="day-actions">
+                <button class="btn danger" id="admin-close-day">Günü kapalı yap</button>
+                <button class="btn ghost" id="admin-open-day">Günü aç</button>
+              </div>
+            </div>
+            <div id="admin-closed-note" class="alert hidden"></div>
+            <div id="admin-slot-grid" class="slot-grid admin" role="list"></div>
+            <p class="helper">Müsait saatlere tıklayarak bloke edebilir, bloklu saatlere tıklayarak açabilirsiniz.</p>
+            <p class="feedback" id="admin-feedback"></p>
+          </div>
+          <aside class="admin-sidebar">
+            <article class="panel small">
+              <h3>Günlük Randevular</h3>
+              <ul id="admin-appointments" class="list"></ul>
+            </article>
+            <article class="panel small">
+              <h3>Kapalı Günler</h3>
+              <ul id="closed-days-list" class="list"></ul>
+            </article>
+            <article class="panel small">
+              <h3>Analiz Kartları</h3>
+              <div class="analytics" id="analytics-cards">
+                <article>
+                  <h4>Popüler Hizmetler</h4>
+                  <ul id="popular-services"></ul>
+                </article>
+                <article>
+                  <h4>Popüler Ürünler</h4>
+                  <ul id="popular-products"></ul>
+                </article>
+                <article>
+                  <h4>Yoğun Saatler</h4>
+                  <ul id="peak-times"></ul>
+                </article>
+              </div>
+            </article>
+            <article class="panel small">
+              <h3>Gelir Özeti (sadece yönetici)</h3>
+              <table id="revenue-table">
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hizmet</th>
+                    <th>Ürün</th>
+                    <th>Toplam</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
