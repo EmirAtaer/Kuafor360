@@ -71,7 +71,7 @@ const buildDailySlots = (appointments = []) => {
 
 // RANDEVU OLUŞTURMA
 router.post('/', (req, res) => {
-  const { customer_id, service_id, date, start_time } = req.body;
+  const { customer_id, service_id, date, start_time, products = [], notes } = req.body;
 
   if (!customer_id || !service_id || !date || !start_time) {
     return res.status(400).json({ message: 'customer_id, service_id, date ve start_time alanları zorunlu.' });
@@ -97,20 +97,74 @@ router.post('/', (req, res) => {
     }
 
     const insertQuery = `
-      INSERT INTO appointments (customer_id, service_id, date, start_time, end_time, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
+      INSERT INTO appointments (customer_id, service_id, date, start_time, end_time, status, notes)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?)
     `;
 
-    db.query(insertQuery, [customer_id, service_id, date, start_time, end_time], (err2, result) => {
+    db.query(insertQuery, [customer_id, service_id, date, start_time, end_time, notes || null], (err2, result) => {
       if (err2) return res.status(500).json({ error: err2 });
-      res.json({ message: 'Randevu başarıyla eklendi!', id: result.insertId, start_time, end_time });
+
+      const appointmentId = result.insertId;
+      const sanitizedProducts = Array.isArray(products)
+        ? products.filter((p) => p && p.product_id).map((p) => ({
+            product_id: p.product_id,
+            quantity: Number(p.quantity) > 0 ? Number(p.quantity) : 1,
+          }))
+        : [];
+
+      if (!sanitizedProducts.length) {
+        return res.json({
+          message: 'Randevu başarıyla eklendi!',
+          id: appointmentId,
+          start_time,
+          end_time,
+        });
+      }
+
+      const productValues = sanitizedProducts.map((p) => [appointmentId, p.product_id, p.quantity]);
+      const productQuery = 'INSERT INTO appointment_products (appointment_id, product_id, quantity) VALUES ?';
+
+      db.query(productQuery, [productValues], (err3) => {
+        if (err3) return res.status(500).json({ error: err3 });
+        res.json({
+          message: 'Randevu ve ekstra ürünler eklendi!',
+          id: appointmentId,
+          start_time,
+          end_time,
+          products: sanitizedProducts,
+        });
+      });
     });
   });
 });
 
-// TÜM RANDEVULARI LİSTELE
+// TÜM RANDEVULARI LİSTELE (admin panel için)
 router.get('/', (req, res) => {
-  db.query('SELECT * FROM appointments', (err, results) => {
+  const query = `
+    SELECT a.*, s.name AS service_name
+    FROM appointments a
+    JOIN services s ON a.service_id = s.id
+    ORDER BY a.date ASC, a.start_time ASC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
+// BELİRLİ BİR GÜNÜN RANDEVULARI
+router.get('/day/:date', (req, res) => {
+  const { date } = req.params;
+  const query = `
+    SELECT a.*, s.name AS service_name
+    FROM appointments a
+    JOIN services s ON a.service_id = s.id
+    WHERE a.date = ?
+    ORDER BY a.start_time ASC
+  `;
+
+  db.query(query, [date], (err, results) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
   });
@@ -131,6 +185,45 @@ router.get('/available', (req, res) => {
 
     const availableSlots = buildDailySlots(results);
     res.json({ date, available_slots: availableSlots });
+  });
+});
+
+// RANDEVU DETAYI (müşteri ve admin için)
+router.get('/detail/:id', (req, res) => {
+  const { id } = req.params;
+
+  const appointmentQuery = `
+    SELECT a.*, s.name AS service_name, s.price AS service_price
+    FROM appointments a
+    JOIN services s ON a.service_id = s.id
+    WHERE a.id = ?
+  `;
+
+  const productsQuery = `
+    SELECT p.name, p.price, ap.quantity
+    FROM appointment_products ap
+    JOIN products p ON ap.product_id = p.id
+    WHERE ap.appointment_id = ?
+  `;
+
+  db.query(appointmentQuery, [id], (err, appointmentResults) => {
+    if (err) return res.status(500).json({ error: err });
+    if (!appointmentResults.length) {
+      return res.status(404).json({ message: 'Randevu bulunamadı.' });
+    }
+
+    db.query(productsQuery, [id], (err2, productResults) => {
+      if (err2) return res.status(500).json({ error: err2 });
+      const appointment = appointmentResults[0];
+      const productTotal = productResults.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
+      const total = Number(appointment.service_price) + productTotal;
+
+      res.json({
+        ...appointment,
+        products: productResults,
+        total_price: total,
+      });
+    });
   });
 });
 

@@ -10,6 +10,38 @@ router.get('/', (req, res) => {
   });
 });
 
+// HAZIR HİZMET PAKETLERİ
+router.get('/packages', (_req, res) => {
+  const packages = [
+    {
+      id: 'sac-sakal',
+      name: 'Saç + Sakal Paketi',
+      description: 'Saç kesimi + şekillendirme ve sakal bakımı',
+      duration_minutes: 60,
+      price_hint: 'Gösterim amaçlı - admin panelinden fiyatlayın',
+      services: ['Saç Kesimi', 'Sakal Bakımı'],
+    },
+    {
+      id: 'bakim',
+      name: 'Saç Bakım Paketi',
+      description: 'Keratin veya onarıcı bakım, maske ve fön',
+      duration_minutes: 60,
+      price_hint: 'Gösterim amaçlı - admin panelinden fiyatlayın',
+      services: ['Keratin Bakım', 'Saç Maskesi', 'Fön / Şekillendirme'],
+    },
+    {
+      id: 'renk',
+      name: 'Boyama + Şekillendirme',
+      description: 'Boyama, tonlama ve sonrasında fön',
+      duration_minutes: 90,
+      price_hint: 'Gösterim amaçlı - admin panelinden fiyatlayın',
+      services: ['Boyama', 'Tonlama', 'Fön / Şekillendirme'],
+    },
+  ];
+
+  res.json({ packages });
+});
+
 // YENİ HİZMET EKLE
 router.post('/', (req, res) => {
   const { name, price } = req.body;
