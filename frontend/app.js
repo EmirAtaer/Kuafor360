@@ -360,9 +360,40 @@ async function loadServices() {
 }
 
 async function loadProducts() {
-  const products = await safeFetch(`${API_URL}/products`);
+  let products = await safeFetch(`${API_URL}/products`);
+
+  if (!products?.length) {
+    await Promise.all(
+      FALLBACK_PRODUCTS.map((product) =>
+        safeFetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product),
+        })
+      )
+    );
+    products = await safeFetch(`${API_URL}/products`);
+  }
+
   state.products = products || [];
   renderProductSelector();
+  renderProductPricing();
+}
+
+async function updateServicePrice(id, price) {
+  dom.admin.feedback.textContent = 'Fiyat güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Fiyat güncellendi.';
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
 }
 
 async function updateServicePrice(id, price) {
@@ -747,6 +778,7 @@ function attachEvents() {
   dom.admin.exit.addEventListener('click', () => {
     state.adminLoggedIn = false;
     dom.admin.feedback.textContent = '';
+    if (notificationInterval) clearInterval(notificationInterval);
     setAnalyticsPlaceholder();
     setScreen('landing');
   });

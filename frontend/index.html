@@ -103,10 +103,13 @@
             <div class="selected-slot" id="customer-selected-slot">Henüz saat seçmediniz.</div>
             <form id="customer-booking" class="booking-details">
               <div class="form-grid">
-                <label>
-                  Hizmet
-                  <select id="customer-service"></select>
-                </label>
+                <div class="service-toolbar">
+                  <label>
+                    Hizmet
+                    <select id="customer-service"></select>
+                  </label>
+                  <button class="btn ghost" type="button" id="toggle-products">Ürünleri aç</button>
+                </div>
                 <label>
                   Not
                   <input type="text" id="customer-notes" placeholder="Örn. kısa kesim, sakal kalsın" />
@@ -188,7 +191,7 @@
             </article>
             <article class="panel small">
               <h3>Günlük Randevular</h3>
-              <ul id="admin-appointments" class="list"></ul>
+              <ul id="admin-appointments" class="list scrollable"></ul>
             </article>
             <article class="panel small">
               <h3>Kapalı Günler</h3>
