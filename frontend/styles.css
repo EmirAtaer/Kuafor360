@@ -3,7 +3,7 @@
   color: #0f172a;
   line-height: 1.5;
   background: #020617;
-  --primary: #f3a86c;
+  --primary: #f59e42;
   --dark: #0f172a;
   --muted: #94a3b8;
   --border: rgba(148, 163, 184, 0.3);
@@ -270,9 +270,9 @@ textarea:focus {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #f3a86c, #eb7f35);
-  color: #fff7ed;
-  box-shadow: 0 10px 22px rgba(245, 158, 66, 0.18);
+  background: linear-gradient(135deg, #f59e42, #f2831f);
+  color: white;
+  box-shadow: 0 10px 26px rgba(245, 158, 66, 0.28);
 }
 
 .btn.dark {
@@ -420,7 +420,7 @@ textarea:focus {
   border-radius: 0.9rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
   text-align: center;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(15, 23, 42, 0.55);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
   animation: pulseIn 0.35s ease both;
@@ -431,16 +431,13 @@ textarea:focus {
 }
 
 .slot--available {
-  border-color: rgba(245, 158, 66, 0.65);
-  background: rgba(245, 158, 66, 0.22);
-  color: #0f172a;
+  border-color: rgba(245, 158, 66, 0.8);
+  background: rgba(245, 158, 66, 0.15);
 }
 
 .slot--selected {
-  background: rgba(245, 158, 66, 0.28);
+  background: rgba(245, 158, 66, 0.25);
   border-color: rgba(245, 158, 66, 0.95);
-  box-shadow: 0 0 0 2px rgba(245, 158, 66, 0.4), 0 14px 32px rgba(245, 158, 66, 0.2);
-  color: #0f172a;
 }
 
 .slot--booked {

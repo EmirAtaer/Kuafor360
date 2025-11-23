@@ -153,14 +153,24 @@ function createSlotLabel(hour) {
 function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
+  if (!state.services.length) {
+    const fallback = [
+      { id: 'placeholder-hair', name: 'Saç' },
+      { id: 'placeholder-beard', name: 'Sakal' },
+      { id: 'placeholder-hairbeard', name: 'Saç + Sakal' },
+    ];
 
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Hizmet seçiniz';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  select.appendChild(defaultOption);
-
+    select.innerHTML = '<option value="" disabled selected>Hizmet bulunamadı — örnek seçenekleri ekleyin</option>';
+    fallback.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.name} (örnek)`;
+      option.disabled = true;
+      select.appendChild(option);
+    });
+    return;
+  }
+  select.innerHTML = '<option value="">Hizmet seçiniz</option>';
   state.services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
@@ -596,14 +606,6 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
-    const selectedService = state.services.find((service) => Number(service.id) === serviceId);
-    addNotification({
-      date: state.customerDate,
-      start_time: state.selectedSlot.start,
-      customer_name: state.customer?.full_name || 'Müşteri',
-      customer_phone: state.customer?.phone,
-      service_name: selectedService?.name || 'Hizmet',
-    });
     if (state.adminLoggedIn) {
       const name = state.customer?.full_name || 'Müşteri';
       const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
