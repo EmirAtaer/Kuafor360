@@ -1,6 +1,11 @@
 const API_URL = window.location.origin.startsWith('http') ? window.location.origin : 'http://localhost:5050';
 
 const HOURS = Array.from({ length: 12 }, (_, index) => 10 + index);
+const FALLBACK_SERVICES = [
+  { name: 'Saç', price: 0 },
+  { name: 'Sakal', price: 0 },
+  { name: 'Saç + Sakal', price: 0 },
+];
 
 const dom = {
   hero: {
@@ -33,6 +38,12 @@ const dom = {
     feedback: document.getElementById('admin-feedback'),
     appointments: document.getElementById('admin-appointments'),
     closedDays: document.getElementById('closed-days-list'),
+    pricingList: document.getElementById('admin-pricing'),
+    notificationToggle: document.getElementById('admin-notifications-toggle'),
+    notificationPanel: document.getElementById('admin-notification-panel'),
+    notificationCount: document.getElementById('admin-notification-count'),
+    notificationList: document.getElementById('notification-list'),
+    markNotificationsRead: document.getElementById('mark-notifications-read'),
   },
   analytics: {
     services: document.getElementById('popular-services'),
@@ -58,14 +69,55 @@ const state = {
   selectedProducts: {},
   customerSchedule: null,
   adminSchedule: null,
+  notifications: [],
 };
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
 
 setAnalyticsPlaceholder();
+loadStoredNotifications();
+renderNotifications();
 
 const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
+
+function loadStoredNotifications() {
+  try {
+    const stored = localStorage.getItem('adminNotifications');
+    state.notifications = stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.warn('Bildirimler yüklenemedi', error);
+    state.notifications = [];
+  }
+}
+
+function persistNotifications() {
+  localStorage.setItem('adminNotifications', JSON.stringify(state.notifications));
+}
+
+function addNotification(entry) {
+  state.notifications = [{ ...entry, id: Date.now() }, ...state.notifications];
+  persistNotifications();
+  renderNotifications();
+}
+
+function renderNotifications() {
+  if (!dom.admin.notificationCount || !dom.admin.notificationList) return;
+
+  dom.admin.notificationCount.textContent = state.notifications.length;
+  dom.admin.notificationList.innerHTML = '';
+
+  if (!state.notifications.length) {
+    dom.admin.notificationList.innerHTML = '<li class="muted">Yeni bildirim yok.</li>';
+    return;
+  }
+
+  state.notifications.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = `${item.date} ${item.start_time} • ${item.customer_name} (${item.customer_phone || '-'}) • ${item.service_name}`;
+    dom.admin.notificationList.appendChild(li);
+  });
+}
 
 function setAnalyticsPlaceholder() {
   const message = '<li class="muted">Veriler sadece yönetici girişinden sonra görünür.</li>';
@@ -101,16 +153,53 @@ function createSlotLabel(hour) {
 function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
-  if (!state.services.length) {
-    select.innerHTML = '<option value="">Hizmet bulunamadı</option>';
-    return;
-  }
-  select.innerHTML = '<option value="">Hizmet seçiniz</option>';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Hizmet seçiniz';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  select.appendChild(defaultOption);
+
   state.services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
     option.textContent = `${service.name} — ${formatCurrency(service.price)}`;
     select.appendChild(option);
+  });
+}
+
+function renderAdminPricing() {
+  if (!dom.admin.pricingList) return;
+  dom.admin.pricingList.innerHTML = '';
+
+  if (!state.services.length) {
+    dom.admin.pricingList.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
+    return;
+  }
+
+  state.services.forEach((service) => {
+    const row = document.createElement('div');
+    row.className = 'pricing-row';
+    const disabledAttr = service.id ? '' : 'disabled';
+    row.innerHTML = `
+      <div>
+        <strong>${service.name}</strong>
+        <p class="muted">Müşteri listesinde görünecek.</p>
+      </div>
+      <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
+      <button class="btn primary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+    `;
+
+    const priceInput = row.querySelector('[data-price]');
+    const saveButton = row.querySelector('[data-save-price]');
+
+    saveButton.addEventListener('click', async () => {
+      const newPrice = Number(priceInput.value) || 0;
+      await updateServicePrice(service.id, newPrice);
+    });
+
+    dom.admin.pricingList.appendChild(row);
   });
 }
 
@@ -232,15 +321,46 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
 }
 
 async function loadServices() {
-  const services = await safeFetch(`${API_URL}/services`);
-  state.services = services || [];
+  let services = await safeFetch(`${API_URL}/services`);
+
+  if (!services?.length) {
+    await Promise.all(
+      FALLBACK_SERVICES.map((service) =>
+        safeFetch(`${API_URL}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(service),
+        })
+      )
+    );
+    services = await safeFetch(`${API_URL}/services`);
+  }
+
+  state.services = services?.length ? services : FALLBACK_SERVICES;
   renderServiceOptions();
+  renderAdminPricing();
 }
 
 async function loadProducts() {
   const products = await safeFetch(`${API_URL}/products`);
   state.products = products || [];
   renderProductSelector();
+}
+
+async function updateServicePrice(id, price) {
+  dom.admin.feedback.textContent = 'Fiyat güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Fiyat güncellendi.';
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
 }
 
 async function loadPackages() {
@@ -476,6 +596,19 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
+    const selectedService = state.services.find((service) => Number(service.id) === serviceId);
+    addNotification({
+      date: state.customerDate,
+      start_time: state.selectedSlot.start,
+      customer_name: state.customer?.full_name || 'Müşteri',
+      customer_phone: state.customer?.phone,
+      service_name: selectedService?.name || 'Hizmet',
+    });
+    if (state.adminLoggedIn) {
+      const name = state.customer?.full_name || 'Müşteri';
+      const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
+      dom.admin.feedback.textContent = `${name}${phone}, ${state.customerDate} ${state.selectedSlot.start} için yeni randevu oluşturdu.`;
+    }
     state.selectedSlot = null;
     dom.customer.selectedSlot.textContent = 'Henüz saat seçmediniz.';
     dom.customer.bookingForm.reset();
@@ -557,6 +690,17 @@ function attachEvents() {
   dom.admin.openDay.addEventListener('click', (event) => {
     event.preventDefault();
     openDay();
+  });
+
+  dom.admin.notificationToggle?.addEventListener('click', () => {
+    dom.admin.notificationPanel?.classList.toggle('hidden');
+  });
+
+  dom.admin.markNotificationsRead?.addEventListener('click', () => {
+    state.notifications = [];
+    persistNotifications();
+    renderNotifications();
+    dom.admin.notificationPanel?.classList.add('hidden');
   });
 }
 
