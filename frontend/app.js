@@ -25,6 +25,8 @@ const dom = {
     serviceSelect: document.getElementById('customer-service'),
     notes: document.getElementById('customer-notes'),
     productSelector: document.getElementById('product-selector'),
+    popularServices: document.getElementById('popular-service-pills'),
+    popularPackages: document.getElementById('popular-package-pills'),
     feedback: document.getElementById('customer-feedback'),
   },
   admin: {
@@ -50,6 +52,7 @@ const dom = {
     products: document.getElementById('popular-products'),
     peakDays: document.getElementById('peak-days'),
     revenueBody: document.querySelector('#revenue-table tbody'),
+    incomeCards: document.getElementById('income-cards'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -66,6 +69,8 @@ const state = {
   adminDate: new Date().toISOString().split('T')[0],
   services: [],
   products: [],
+  packages: [],
+  popularServices: [],
   selectedProducts: {},
   customerSchedule: null,
   adminSchedule: null,
@@ -126,6 +131,9 @@ function setAnalyticsPlaceholder() {
   dom.analytics.peakDays.innerHTML = message;
   dom.analytics.revenueBody.innerHTML =
     '<tr><td class="muted" colspan="4">Gelir tablosu sadece yönetici girişinden sonra dolar.</td></tr>';
+  if (dom.analytics.incomeCards) {
+    dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartları yönetici girişiyle dolacak.</p>';
+  }
 }
 
 async function safeFetch(url, options) {
@@ -376,20 +384,48 @@ async function updateServicePrice(id, price) {
 async function loadPackages() {
   const data = await safeFetch(`${API_URL}/services/packages`);
   const packages = data?.packages ?? [];
+  state.packages = packages;
   dom.hero.packages.textContent = packages.length;
   dom.extras.packages.innerHTML = '';
+  dom.customer.popularPackages && renderPackagePills();
 
   packages.forEach((pkg) => {
     const card = document.createElement('article');
     card.className = 'package-card';
     card.innerHTML = `
-      <strong>${pkg.name}</strong>
-      <p>${pkg.description}</p>
+      <header style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+        <div>
+          <strong>${pkg.name}</strong>
+          <p>${pkg.description}</p>
+        </div>
+        <button class="btn ghost small" type="button" data-pick-package="${pkg.name}">Seç</button>
+      </header>
       <small>${pkg.duration_minutes} dk • ${pkg.price_hint}</small>
       <ul>${pkg.services.map((s) => `<li>${s}</li>`).join('')}</ul>
     `;
+    const pickBtn = card.querySelector('[data-pick-package]');
+    pickBtn.addEventListener('click', async () => {
+      await selectServiceByName(pkg.name);
+      if (!dom.customer.notes.value) {
+        dom.customer.notes.value = pkg.description || pkg.name;
+      }
+    });
     dom.extras.packages.appendChild(card);
   });
+
+  const missingPackages = packages.filter((pkg) => !state.services.find((service) => service.name === pkg.name));
+  if (missingPackages.length) {
+    await Promise.all(
+      missingPackages.map((pkg) =>
+        safeFetch(`${API_URL}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: pkg.name, price: 0 }),
+        })
+      )
+    );
+    await loadServices();
+  }
 }
 
 async function loadExtras() {
@@ -407,6 +443,12 @@ async function loadExtras() {
   });
 }
 
+async function loadPopularInsights() {
+  const popular = await safeFetch(`${API_URL}/reports/popular-services`);
+  state.popularServices = popular || [];
+  renderPopularPills(state.popularServices);
+}
+
 async function loadStats() {
   const today = new Date().toISOString().split('T')[0];
   const [dailyAppointments, availability] = await Promise.all([
@@ -417,6 +459,37 @@ async function loadStats() {
   dom.hero.bookings.textContent = dailyAppointments?.length ?? 0;
   const freeSlots = availability?.available_slots?.length ?? 0;
   dom.hero.availability.textContent = freeSlots;
+}
+
+function renderIncomeCards(periods = []) {
+  if (!dom.analytics.incomeCards) return;
+  dom.analytics.incomeCards.innerHTML = '';
+
+  if (!periods.length) {
+    dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartı bulunamadı.</p>';
+    return;
+  }
+
+  periods.forEach((row) => {
+    const card = document.createElement('div');
+    card.className = 'income-card';
+    card.innerHTML = `
+      <strong>${row.period}</strong>
+      <p class="muted">Hizmet: ${formatCurrency(row.service_income)}</p>
+      <p class="muted">Ürün: ${formatCurrency(row.product_income)}</p>
+      <p><span class="muted">Toplam:</span> ${formatCurrency(row.total_income)}</p>
+    `;
+    dom.analytics.incomeCards.appendChild(card);
+  });
+}
+
+async function loadIncomeCards() {
+  if (!state.adminLoggedIn) {
+    renderIncomeCards([]);
+    return;
+  }
+  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
+  renderIncomeCards(periods || []);
 }
 
 async function loadAnalytics() {
@@ -455,6 +528,9 @@ async function loadAnalytics() {
     `;
     dom.analytics.revenueBody.appendChild(tr);
   });
+
+  renderPopularPills(popularServices || []);
+  await loadIncomeCards();
 }
 
 async function fetchCustomerSchedule() {
@@ -563,7 +639,7 @@ async function handleAdminLogin(event) {
   state.adminLoggedIn = true;
   setScreen('admin');
   dom.admin.feedback.textContent = '';
-  await Promise.all([fetchAdminSchedule(), loadClosedDays()]);
+  await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
   await loadAnalytics();
 }
 
@@ -709,7 +785,8 @@ function attachEvents() {
 
 async function init() {
   attachEvents();
-  await Promise.all([loadServices(), loadProducts(), loadPackages(), loadExtras(), loadStats()]);
+  await loadServices();
+  await Promise.all([loadProducts(), loadPackages(), loadExtras(), loadStats(), loadPopularInsights()]);
   await fetchCustomerSchedule();
 }
 
