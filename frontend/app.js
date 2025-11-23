@@ -1,6 +1,16 @@
 const API_URL = window.location.origin.startsWith('http') ? window.location.origin : 'http://localhost:5050';
 
 const HOURS = Array.from({ length: 12 }, (_, index) => 10 + index);
+const FALLBACK_SERVICES = [
+  { name: 'Saç', price: 0 },
+  { name: 'Sakal', price: 0 },
+  { name: 'Saç + Sakal', price: 0 },
+  { name: 'Saç + Sakal Paketi', price: 0 },
+  { name: 'Saç Bakım Paketi', price: 0 },
+  { name: 'Boyama + Şekillendirme', price: 0 },
+  { name: 'Cilt Bakımı', price: 0 },
+  { name: 'Çocuk Kesimi', price: 0 },
+];
 
 const dom = {
   hero: {
@@ -20,6 +30,8 @@ const dom = {
     serviceSelect: document.getElementById('customer-service'),
     notes: document.getElementById('customer-notes'),
     productSelector: document.getElementById('product-selector'),
+    popularServices: document.getElementById('popular-service-pills'),
+    popularPackages: document.getElementById('popular-package-pills'),
     feedback: document.getElementById('customer-feedback'),
   },
   admin: {
@@ -33,12 +45,19 @@ const dom = {
     feedback: document.getElementById('admin-feedback'),
     appointments: document.getElementById('admin-appointments'),
     closedDays: document.getElementById('closed-days-list'),
+    pricingList: document.getElementById('admin-pricing'),
+    notificationToggle: document.getElementById('admin-notifications-toggle'),
+    notificationPanel: document.getElementById('admin-notification-panel'),
+    notificationCount: document.getElementById('admin-notification-count'),
+    notificationList: document.getElementById('notification-list'),
+    markNotificationsRead: document.getElementById('mark-notifications-read'),
   },
   analytics: {
     services: document.getElementById('popular-services'),
     products: document.getElementById('popular-products'),
-    peaks: document.getElementById('peak-times'),
+    peakDays: document.getElementById('peak-days'),
     revenueBody: document.querySelector('#revenue-table tbody'),
+    incomeCards: document.getElementById('income-cards'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -55,25 +74,116 @@ const state = {
   adminDate: new Date().toISOString().split('T')[0],
   services: [],
   products: [],
+  packages: [],
+  popularServices: [],
   selectedProducts: {},
   customerSchedule: null,
   adminSchedule: null,
+  notifications: [],
 };
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
 
 setAnalyticsPlaceholder();
+loadStoredNotifications();
+renderNotifications();
 
 const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
+
+function loadStoredNotifications() {
+  try {
+    const stored = localStorage.getItem('adminNotifications');
+    state.notifications = stored
+      ? JSON.parse(stored).map((item) => ({
+          ...item,
+          key:
+            item.key || `${item.date}-${item.start_time}-${item.customer_name || ''}-${item.customer_phone || ''}`,
+        }))
+      : [];
+  } catch (error) {
+    console.warn('Bildirimler yüklenemedi', error);
+    state.notifications = [];
+  }
+}
+
+function persistNotifications() {
+  localStorage.setItem('adminNotifications', JSON.stringify(state.notifications));
+}
+
+function addNotification(entry) {
+  const key =
+    entry.key || `${entry.date}-${entry.start_time}-${entry.customer_name || ''}-${entry.customer_phone || ''}`;
+  if (state.notifications.some((item) => item.key === key)) {
+    return;
+  }
+  state.notifications = [{ ...entry, key, id: Date.now() }, ...state.notifications];
+  persistNotifications();
+  renderNotifications();
+}
+
+function syncNotificationsFromBookings(bookings, date) {
+  if (!bookings?.length) return;
+
+  const existingKeys = new Set(state.notifications.map((item) => item.key));
+  const newEntries = [];
+
+  bookings.forEach((booking) => {
+    const bookingDate = booking.date?.split('T')?.[0] || date;
+    const key = `${bookingDate}-${booking.start_time}-${booking.customer_name || ''}-${booking.customer_phone || ''}`;
+    if (existingKeys.has(key)) return;
+    newEntries.push({
+      date: bookingDate,
+      start_time: booking.start_time,
+      customer_name: booking.customer_name || 'Müşteri',
+      customer_phone: booking.customer_phone,
+      service_name: booking.service_name,
+      key,
+    });
+  });
+
+  if (newEntries.length) {
+    const stamped = newEntries.map((entry, index) => ({ ...entry, id: Date.now() + index }));
+    state.notifications = [...stamped, ...state.notifications];
+    persistNotifications();
+    renderNotifications();
+  }
+}
+
+function renderNotifications() {
+  if (!dom.admin.notificationCount || !dom.admin.notificationList) return;
+
+  dom.admin.notificationCount.textContent = state.notifications.length;
+  dom.admin.notificationList.innerHTML = '';
+
+  if (!state.notifications.length) {
+    dom.admin.notificationList.innerHTML = '<li class="muted">Yeni bildirim yok.</li>';
+    return;
+  }
+
+  state.notifications.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = `${item.date} ${item.start_time} • ${item.customer_name} (${item.customer_phone || '-'}) • ${item.service_name}`;
+    dom.admin.notificationList.appendChild(li);
+  });
+}
+
+async function refreshNotificationsFromServer() {
+  const recent = await safeFetch(`${API_URL}/appointments/recent`);
+  if (!recent) return;
+  syncNotificationsFromBookings(recent);
+}
 
 function setAnalyticsPlaceholder() {
   const message = '<li class="muted">Veriler sadece yönetici girişinden sonra görünür.</li>';
   dom.analytics.services.innerHTML = message;
   dom.analytics.products.innerHTML = message;
-  dom.analytics.peaks.innerHTML = message;
+  dom.analytics.peakDays.innerHTML = message;
   dom.analytics.revenueBody.innerHTML =
     '<tr><td class="muted" colspan="4">Gelir tablosu sadece yönetici girişinden sonra dolar.</td></tr>';
+  if (dom.analytics.incomeCards) {
+    dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartları yönetici girişiyle dolacak.</p>';
+  }
 }
 
 async function safeFetch(url, options) {
@@ -101,16 +211,122 @@ function createSlotLabel(hour) {
 function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
-  if (!state.services.length) {
-    select.innerHTML = '<option value="">Hizmet bulunamadı</option>';
-    return;
-  }
-  select.innerHTML = '<option value="">Hizmet seçiniz</option>';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Hizmet seçiniz';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  select.appendChild(defaultOption);
+
   state.services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
     option.textContent = `${service.name} — ${formatCurrency(service.price)}`;
     select.appendChild(option);
+  });
+}
+
+function renderAdminPricing() {
+  if (!dom.admin.pricingList) return;
+  dom.admin.pricingList.innerHTML = '';
+
+  if (!state.services.length) {
+    dom.admin.pricingList.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
+    return;
+  }
+
+  state.services.forEach((service) => {
+    const row = document.createElement('div');
+    row.className = 'pricing-row';
+    const disabledAttr = service.id ? '' : 'disabled';
+    row.innerHTML = `
+      <div>
+        <strong>${service.name}</strong>
+        <p class="muted">Müşteri listesinde görünecek.</p>
+      </div>
+      <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
+      <button class="btn secondary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+    `;
+
+    const priceInput = row.querySelector('[data-price]');
+    const saveButton = row.querySelector('[data-save-price]');
+
+    saveButton.addEventListener('click', async () => {
+      const newPrice = Number(priceInput.value) || 0;
+      await updateServicePrice(service.id, newPrice);
+    });
+
+    dom.admin.pricingList.appendChild(row);
+  });
+}
+
+async function ensureServiceExistsByName(name) {
+  const existing = state.services.find((service) => service.name === name);
+  if (existing) return existing;
+
+  const created = await safeFetch(`${API_URL}/services`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price: 0 }),
+  });
+
+  if (created?.id) {
+    await loadServices();
+    return state.services.find((service) => service.id === created.id || service.name === name);
+  }
+  return null;
+}
+
+async function selectServiceByName(name) {
+  if (!dom.customer.serviceSelect) return;
+  let targetOption = Array.from(dom.customer.serviceSelect.options).find((option) =>
+    option.textContent.startsWith(name)
+  );
+
+  if (!targetOption) {
+    const created = await ensureServiceExistsByName(name);
+    targetOption = Array.from(dom.customer.serviceSelect.options).find(
+      (option) => Number(option.value) === Number(created?.id)
+    );
+  }
+
+  if (targetOption) {
+    targetOption.selected = true;
+    dom.customer.feedback.textContent = '';
+  }
+}
+
+function renderPopularPills(list = []) {
+  if (!dom.customer.popularServices) return;
+  dom.customer.popularServices.innerHTML = '';
+
+  list.slice(0, 6).forEach((item) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'pill';
+    pill.textContent = `${item.name} (${item.count || 0})`;
+    pill.addEventListener('click', () => selectServiceByName(item.name));
+    dom.customer.popularServices.appendChild(pill);
+  });
+}
+
+function renderPackagePills() {
+  if (!dom.customer.popularPackages) return;
+  dom.customer.popularPackages.innerHTML = '';
+
+  state.packages.slice(0, 4).forEach((pkg) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'pill';
+    pill.textContent = pkg.name;
+    pill.addEventListener('click', async () => {
+      await selectServiceByName(pkg.name);
+      if (!dom.customer.notes.value) {
+        dom.customer.notes.value = pkg.description || pkg.name;
+      }
+    });
+    dom.customer.popularPackages.appendChild(pill);
   });
 }
 
@@ -232,9 +448,24 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
 }
 
 async function loadServices() {
-  const services = await safeFetch(`${API_URL}/services`);
-  state.services = services || [];
+  let services = await safeFetch(`${API_URL}/services`);
+
+  if (!services?.length) {
+    await Promise.all(
+      FALLBACK_SERVICES.map((service) =>
+        safeFetch(`${API_URL}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(service),
+        })
+      )
+    );
+    services = await safeFetch(`${API_URL}/services`);
+  }
+
+  state.services = services?.length ? services : FALLBACK_SERVICES;
   renderServiceOptions();
+  renderAdminPricing();
 }
 
 async function loadProducts() {
@@ -243,23 +474,67 @@ async function loadProducts() {
   renderProductSelector();
 }
 
+async function updateServicePrice(id, price) {
+  dom.admin.feedback.textContent = 'Fiyat güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Fiyat güncellendi.';
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
+}
+
 async function loadPackages() {
   const data = await safeFetch(`${API_URL}/services/packages`);
   const packages = data?.packages ?? [];
+  state.packages = packages;
   dom.hero.packages.textContent = packages.length;
   dom.extras.packages.innerHTML = '';
+  dom.customer.popularPackages && renderPackagePills();
 
   packages.forEach((pkg) => {
     const card = document.createElement('article');
     card.className = 'package-card';
     card.innerHTML = `
-      <strong>${pkg.name}</strong>
-      <p>${pkg.description}</p>
+      <header style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+        <div>
+          <strong>${pkg.name}</strong>
+          <p>${pkg.description}</p>
+        </div>
+        <button class="btn ghost small" type="button" data-pick-package="${pkg.name}">Seç</button>
+      </header>
       <small>${pkg.duration_minutes} dk • ${pkg.price_hint}</small>
       <ul>${pkg.services.map((s) => `<li>${s}</li>`).join('')}</ul>
     `;
+    const pickBtn = card.querySelector('[data-pick-package]');
+    pickBtn.addEventListener('click', async () => {
+      await selectServiceByName(pkg.name);
+      if (!dom.customer.notes.value) {
+        dom.customer.notes.value = pkg.description || pkg.name;
+      }
+    });
     dom.extras.packages.appendChild(card);
   });
+
+  const missingPackages = packages.filter((pkg) => !state.services.find((service) => service.name === pkg.name));
+  if (missingPackages.length) {
+    await Promise.all(
+      missingPackages.map((pkg) =>
+        safeFetch(`${API_URL}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: pkg.name, price: 0 }),
+        })
+      )
+    );
+    await loadServices();
+  }
 }
 
 async function loadExtras() {
@@ -277,6 +552,12 @@ async function loadExtras() {
   });
 }
 
+async function loadPopularInsights() {
+  const popular = await safeFetch(`${API_URL}/reports/popular-services`);
+  state.popularServices = popular || [];
+  renderPopularPills(state.popularServices);
+}
+
 async function loadStats() {
   const today = new Date().toISOString().split('T')[0];
   const [dailyAppointments, availability] = await Promise.all([
@@ -289,15 +570,46 @@ async function loadStats() {
   dom.hero.availability.textContent = freeSlots;
 }
 
+function renderIncomeCards(periods = []) {
+  if (!dom.analytics.incomeCards) return;
+  dom.analytics.incomeCards.innerHTML = '';
+
+  if (!periods.length) {
+    dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartı bulunamadı.</p>';
+    return;
+  }
+
+  periods.forEach((row) => {
+    const card = document.createElement('div');
+    card.className = 'income-card';
+    card.innerHTML = `
+      <strong>${row.period}</strong>
+      <p class="muted">Hizmet: ${formatCurrency(row.service_income)}</p>
+      <p class="muted">Ürün: ${formatCurrency(row.product_income)}</p>
+      <p><span class="muted">Toplam:</span> ${formatCurrency(row.total_income)}</p>
+    `;
+    dom.analytics.incomeCards.appendChild(card);
+  });
+}
+
+async function loadIncomeCards() {
+  if (!state.adminLoggedIn) {
+    renderIncomeCards([]);
+    return;
+  }
+  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
+  renderIncomeCards(periods || []);
+}
+
 async function loadAnalytics() {
   if (!state.adminLoggedIn) {
     setAnalyticsPlaceholder();
     return;
   }
-  const [popularServices, popularProducts, peakTimes, revenue] = await Promise.all([
+  const [popularServices, popularProducts, peakDays, revenue] = await Promise.all([
     safeFetch(`${API_URL}/reports/popular-services`),
     safeFetch(`${API_URL}/reports/popular-products`),
-    safeFetch(`${API_URL}/reports/peak-times`),
+    safeFetch(`${API_URL}/reports/peak-days`),
     safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
@@ -312,7 +624,7 @@ async function loadAnalytics() {
 
   buildList(dom.analytics.services, popularServices);
   buildList(dom.analytics.products, popularProducts);
-  buildList(dom.analytics.peaks, peakTimes);
+  buildList(dom.analytics.peakDays, peakDays);
 
   dom.analytics.revenueBody.innerHTML = '';
   (revenue ?? []).forEach((row) => {
@@ -325,6 +637,9 @@ async function loadAnalytics() {
     `;
     dom.analytics.revenueBody.appendChild(tr);
   });
+
+  renderPopularPills(popularServices || []);
+  await loadIncomeCards();
 }
 
 async function fetchCustomerSchedule() {
@@ -348,6 +663,8 @@ async function fetchAdminSchedule() {
   state.adminSchedule = { availability, bookings };
   buildSlotGrid(dom.admin.slotGrid, availability, bookings, 'admin');
   renderAdminAppointments(bookings || []);
+  syncNotificationsFromBookings(bookings || [], state.adminDate);
+  await refreshNotificationsFromServer();
 }
 
 function renderAdminAppointments(list) {
@@ -432,7 +749,7 @@ async function handleAdminLogin(event) {
   state.adminLoggedIn = true;
   setScreen('admin');
   dom.admin.feedback.textContent = '';
-  await Promise.all([fetchAdminSchedule(), loadClosedDays()]);
+  await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
   await loadAnalytics();
 }
 
@@ -476,6 +793,19 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
+    const selectedService = state.services.find((service) => Number(service.id) === serviceId);
+    addNotification({
+      date: state.customerDate,
+      start_time: state.selectedSlot.start,
+      customer_name: state.customer?.full_name || 'Müşteri',
+      customer_phone: state.customer?.phone,
+      service_name: selectedService?.name || 'Hizmet',
+    });
+    if (state.adminLoggedIn) {
+      const name = state.customer?.full_name || 'Müşteri';
+      const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
+      dom.admin.feedback.textContent = `${name}${phone}, ${state.customerDate} ${state.selectedSlot.start} için yeni randevu oluşturdu.`;
+    }
     state.selectedSlot = null;
     dom.customer.selectedSlot.textContent = 'Henüz saat seçmediniz.';
     dom.customer.bookingForm.reset();
@@ -558,11 +888,23 @@ function attachEvents() {
     event.preventDefault();
     openDay();
   });
+
+  dom.admin.notificationToggle?.addEventListener('click', () => {
+    dom.admin.notificationPanel?.classList.toggle('hidden');
+  });
+
+  dom.admin.markNotificationsRead?.addEventListener('click', () => {
+    state.notifications = [];
+    persistNotifications();
+    renderNotifications();
+    dom.admin.notificationPanel?.classList.add('hidden');
+  });
 }
 
 async function init() {
   attachEvents();
-  await Promise.all([loadServices(), loadProducts(), loadPackages(), loadExtras(), loadStats()]);
+  await loadServices();
+  await Promise.all([loadProducts(), loadPackages(), loadExtras(), loadStats(), loadPopularInsights()]);
   await fetchCustomerSchedule();
 }
 
