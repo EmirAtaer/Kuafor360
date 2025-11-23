@@ -48,7 +48,7 @@ const dom = {
   analytics: {
     services: document.getElementById('popular-services'),
     products: document.getElementById('popular-products'),
-    peaks: document.getElementById('peak-times'),
+    peakDays: document.getElementById('peak-days'),
     revenueBody: document.querySelector('#revenue-table tbody'),
   },
   extras: {
@@ -123,7 +123,7 @@ function setAnalyticsPlaceholder() {
   const message = '<li class="muted">Veriler sadece yönetici girişinden sonra görünür.</li>';
   dom.analytics.services.innerHTML = message;
   dom.analytics.products.innerHTML = message;
-  dom.analytics.peaks.innerHTML = message;
+  dom.analytics.peakDays.innerHTML = message;
   dom.analytics.revenueBody.innerHTML =
     '<tr><td class="muted" colspan="4">Gelir tablosu sadece yönetici girişinden sonra dolar.</td></tr>';
 }
@@ -424,10 +424,10 @@ async function loadAnalytics() {
     setAnalyticsPlaceholder();
     return;
   }
-  const [popularServices, popularProducts, peakTimes, revenue] = await Promise.all([
+  const [popularServices, popularProducts, peakDays, revenue] = await Promise.all([
     safeFetch(`${API_URL}/reports/popular-services`),
     safeFetch(`${API_URL}/reports/popular-products`),
-    safeFetch(`${API_URL}/reports/peak-times`),
+    safeFetch(`${API_URL}/reports/peak-days`),
     safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
@@ -442,7 +442,7 @@ async function loadAnalytics() {
 
   buildList(dom.analytics.services, popularServices);
   buildList(dom.analytics.products, popularProducts);
-  buildList(dom.analytics.peaks, peakTimes);
+  buildList(dom.analytics.peakDays, peakDays);
 
   dom.analytics.revenueBody.innerHTML = '';
   (revenue ?? []).forEach((row) => {
@@ -478,6 +478,7 @@ async function fetchAdminSchedule() {
   state.adminSchedule = { availability, bookings };
   buildSlotGrid(dom.admin.slotGrid, availability, bookings, 'admin');
   renderAdminAppointments(bookings || []);
+  syncNotificationsFromBookings(bookings || [], state.adminDate);
 }
 
 function renderAdminAppointments(list) {
