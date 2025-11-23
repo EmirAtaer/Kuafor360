@@ -50,6 +50,21 @@ router.get('/popular-products', (_req, res) => {
   });
 });
 
+// HAFTALIK YOĞUN GÜNLER
+router.get('/peak-days', (_req, res) => {
+  const query = `
+    SELECT DAYNAME(a.date) AS weekday, COUNT(a.id) AS bookings
+    FROM appointments a
+    GROUP BY DAYNAME(a.date)
+    ORDER BY bookings DESC;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
 // HAFTALIK YOĞUNLUK (GÜN & SAAT)
 router.get('/peak-times', (_req, res) => {
   const query = `

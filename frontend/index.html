@@ -16,10 +16,10 @@
         <div class="landing-grid">
           <div class="landing-copy">
             <p class="eyebrow">Altın Makas Stüdyosu</p>
-            <h1>Tek kuaför için çift girişli dijital randevu masası</h1>
+            <h1>Altın Makas müşterileri, hoş geldiniz</h1>
             <p>
-              Müşteriler hazır paketleri seçsin, Altın Makas ekibi takvimden gün/saat kapatsın. Çakışmalar otomatik
-              engellenir, herkese sadece gerekli bilgiler gösterilir.
+              Dijital randevu masamızla saç ve bakım hizmetlerinizi dakikalar içinde planlayın. Ekip takvimiyle eşlenmiş
+              bu ekran, çakışmaları otomatik engeller ve yalnızca ihtiyacınız olan bilgileri gösterir.
             </p>
             <div class="stat-row">
               <div>
@@ -139,7 +139,19 @@
             <h1>Takvimi kapat, saatleri blokla</h1>
             <p>Yoğun saatleri tek tıkla bloke et, tatil günlerini kapat ve analiz kartlarından trendleri izle.</p>
           </div>
-          <button class="btn ghost" id="admin-exit">Çıkış yap</button>
+          <div class="admin-actions">
+            <button class="btn ghost notifications" id="admin-notifications-toggle">
+              Bildirimler <span id="admin-notification-count" class="badge">0</span>
+            </button>
+            <button class="btn ghost" id="admin-exit">Çıkış yap</button>
+            <div class="notification-panel hidden" id="admin-notification-panel">
+              <div class="panel-header">
+                <h4>Yeni Randevu Bildirimleri</h4>
+                <button class="btn ghost small" id="mark-notifications-read">Okundu say</button>
+              </div>
+              <ul id="notification-list" class="list"></ul>
+            </div>
+          </div>
         </header>
         <div class="admin-layout">
           <div class="panel schedule-panel">
@@ -160,6 +172,11 @@
           </div>
           <aside class="admin-sidebar">
             <article class="panel small">
+              <h3>Hizmet Fiyatları</h3>
+              <p class="muted">Saç, sakal ve paket fiyatlarını yönetip müşteri ekranına yansıtın.</p>
+              <div id="admin-pricing" class="pricing-list"></div>
+            </article>
+            <article class="panel small">
               <h3>Günlük Randevular</h3>
               <ul id="admin-appointments" class="list"></ul>
             </article>
@@ -179,8 +196,8 @@
                   <ul id="popular-products"></ul>
                 </article>
                 <article>
-                  <h4>Yoğun Saatler</h4>
-                  <ul id="peak-times"></ul>
+                  <h4>Yoğun Günler</h4>
+                  <ul id="peak-days"></ul>
                 </article>
               </div>
             </article>
