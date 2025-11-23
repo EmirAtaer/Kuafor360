@@ -102,7 +102,20 @@ function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
   if (!state.services.length) {
-    select.innerHTML = '<option value="">Hizmet bulunamadı</option>';
+    const fallback = [
+      { id: 'placeholder-hair', name: 'Saç' },
+      { id: 'placeholder-beard', name: 'Sakal' },
+      { id: 'placeholder-hairbeard', name: 'Saç + Sakal' },
+    ];
+
+    select.innerHTML = '<option value="" disabled selected>Hizmet bulunamadı — örnek seçenekleri ekleyin</option>';
+    fallback.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.name} (örnek)`;
+      option.disabled = true;
+      select.appendChild(option);
+    });
     return;
   }
   select.innerHTML = '<option value="">Hizmet seçiniz</option>';
@@ -476,6 +489,11 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
+    if (state.adminLoggedIn) {
+      const name = state.customer?.full_name || 'Müşteri';
+      const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
+      dom.admin.feedback.textContent = `${name}${phone}, ${state.customerDate} ${state.selectedSlot.start} için yeni randevu oluşturdu.`;
+    }
     state.selectedSlot = null;
     dom.customer.selectedSlot.textContent = 'Henüz saat seçmediniz.';
     dom.customer.bookingForm.reset();
