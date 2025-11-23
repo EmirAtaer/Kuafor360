@@ -46,7 +46,7 @@ const dom = {
     notificationCount: document.getElementById('admin-notification-count'),
     notificationList: document.getElementById('notification-list'),
     markNotificationsRead: document.getElementById('mark-notifications-read'),
-  },
+    },
   analytics: {
     services: document.getElementById('popular-services'),
     products: document.getElementById('popular-products'),
@@ -76,6 +76,17 @@ const state = {
   adminSchedule: null,
   notifications: [],
 };
+
+const fallbackAvailability = (date) => ({
+  date,
+  closed: false,
+  note: null,
+  available_slots: HOURS.map((hour) => {
+    const { start, end } = createSlotLabel(hour);
+    return { start_time: start, end_time: end };
+  }),
+  blocked_slots: [],
+});
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
@@ -570,10 +581,12 @@ async function fetchCustomerSchedule() {
     safeFetch(`${API_URL}/appointments/available?date=${state.customerDate}`),
     safeFetch(`${API_URL}/appointments/day/${state.customerDate}`),
   ]);
-  state.customerSchedule = { availability, bookings };
+  const safeAvailability = availability || fallbackAvailability(state.customerDate);
+  const safeBookings = bookings || [];
+  state.customerSchedule = { availability: safeAvailability, bookings: safeBookings };
   state.selectedSlot = null;
   dom.customer.selectedSlot.textContent = 'Henüz saat seçmediniz.';
-  buildSlotGrid(dom.customer.slotGrid, availability, bookings, 'customer');
+  buildSlotGrid(dom.customer.slotGrid, safeAvailability, safeBookings, 'customer');
 }
 
 async function fetchAdminSchedule() {
@@ -652,10 +665,16 @@ async function handleCustomerLogin(event) {
     body: JSON.stringify(payload),
   });
 
-  if (!response) return;
+  if (!response) {
+    const tempCustomer = { id: `local-${Date.now()}`, full_name: payload.full_name, phone: payload.phone };
+    state.customer = tempCustomer;
+    dom.customer.feedback.textContent = 'Sunucuya erişilemedi, yerel modda devam ediyorsunuz.';
+  } else {
+    state.customer = response;
+    dom.customer.feedback.textContent = '';
+  }
 
-  state.customer = response;
-  dom.customer.greeting.textContent = `Hoş geldin ${response.full_name}!`;
+  dom.customer.greeting.textContent = `Hoş geldin ${state.customer.full_name}!`;
   setScreen('customer');
   await fetchCustomerSchedule();
 }
