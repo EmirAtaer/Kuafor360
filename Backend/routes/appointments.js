@@ -113,6 +113,23 @@ router.get('/', (req, res) => {
   });
 });
 
+// SON 20 RANDEVU (bildirim ve özet için)
+router.get('/recent', (_req, res) => {
+  const query = `
+    SELECT a.*, s.name AS service_name, c.full_name AS customer_name, c.phone AS customer_phone
+    FROM appointments a
+    JOIN services s ON a.service_id = s.id
+    LEFT JOIN customers c ON a.customer_id = c.id
+    ORDER BY a.date DESC, a.start_time DESC
+    LIMIT 20
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
 // BELİRLİ BİR GÜNÜN RANDEVULARI
 router.get('/day/:date', (req, res) => {
   const { date } = req.params;
