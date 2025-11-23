@@ -5,18 +5,6 @@ const FALLBACK_SERVICES = [
   { name: 'Saç', price: 0 },
   { name: 'Sakal', price: 0 },
   { name: 'Saç + Sakal', price: 0 },
-  { name: 'Saç + Sakal Paketi', price: 0 },
-  { name: 'Saç Bakım Paketi', price: 0 },
-  { name: 'Boyama + Şekillendirme', price: 0 },
-  { name: 'Cilt Bakımı', price: 0 },
-  { name: 'Çocuk Kesimi', price: 0 },
-];
-const FALLBACK_PRODUCTS = [
-  { name: 'Sakal Yağı', price: 0 },
-  { name: 'Saç Şekillendirici', price: 0 },
-  { name: 'Traş Köpüğü', price: 0 },
-  { name: 'After Shave', price: 0 },
-  { name: 'Keratin Bakım Seti', price: 0 },
 ];
 
 const dom = {
@@ -37,7 +25,6 @@ const dom = {
     serviceSelect: document.getElementById('customer-service'),
     notes: document.getElementById('customer-notes'),
     productSelector: document.getElementById('product-selector'),
-    productToggle: document.getElementById('toggle-products'),
     popularServices: document.getElementById('popular-service-pills'),
     popularPackages: document.getElementById('popular-package-pills'),
     feedback: document.getElementById('customer-feedback'),
@@ -59,8 +46,6 @@ const dom = {
     notificationCount: document.getElementById('admin-notification-count'),
     notificationList: document.getElementById('notification-list'),
     markNotificationsRead: document.getElementById('mark-notifications-read'),
-    productPricingList: document.getElementById('product-pricing'),
-    refreshIncome: document.getElementById('refresh-income'),
   },
   analytics: {
     services: document.getElementById('popular-services'),
@@ -104,13 +89,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'curre
 function loadStoredNotifications() {
   try {
     const stored = localStorage.getItem('adminNotifications');
-    state.notifications = stored
-      ? JSON.parse(stored).map((item) => ({
-          ...item,
-          key:
-            item.key || `${item.date}-${item.start_time}-${item.customer_name || ''}-${item.customer_phone || ''}`,
-        }))
-      : [];
+    state.notifications = stored ? JSON.parse(stored) : [];
   } catch (error) {
     console.warn('Bildirimler yüklenemedi', error);
     state.notifications = [];
@@ -122,42 +101,9 @@ function persistNotifications() {
 }
 
 function addNotification(entry) {
-  const key =
-    entry.key || `${entry.date}-${entry.start_time}-${entry.customer_name || ''}-${entry.customer_phone || ''}`;
-  if (state.notifications.some((item) => item.key === key)) {
-    return;
-  }
-  state.notifications = [{ ...entry, key, id: Date.now() }, ...state.notifications];
+  state.notifications = [{ ...entry, id: Date.now() }, ...state.notifications];
   persistNotifications();
   renderNotifications();
-}
-
-function syncNotificationsFromBookings(bookings, date) {
-  if (!bookings?.length) return;
-
-  const existingKeys = new Set(state.notifications.map((item) => item.key));
-  const newEntries = [];
-
-  bookings.forEach((booking) => {
-    const bookingDate = booking.date?.split('T')?.[0] || date;
-    const key = `${bookingDate}-${booking.start_time}-${booking.customer_name || ''}-${booking.customer_phone || ''}`;
-    if (existingKeys.has(key)) return;
-    newEntries.push({
-      date: bookingDate,
-      start_time: booking.start_time,
-      customer_name: booking.customer_name || 'Müşteri',
-      customer_phone: booking.customer_phone,
-      service_name: booking.service_name,
-      key,
-    });
-  });
-
-  if (newEntries.length) {
-    const stamped = newEntries.map((entry, index) => ({ ...entry, id: Date.now() + index }));
-    state.notifications = [...stamped, ...state.notifications];
-    persistNotifications();
-    renderNotifications();
-  }
 }
 
 function renderNotifications() {
@@ -173,16 +119,9 @@ function renderNotifications() {
 
   state.notifications.forEach((item) => {
     const li = document.createElement('li');
-    const serviceLabel = item.service_name || 'Hizmet';
-    li.textContent = `${item.date} ${item.start_time} • ${item.customer_name} (${item.customer_phone || '-'}) • ${serviceLabel}`;
+    li.textContent = `${item.date} ${item.start_time} • ${item.customer_name} (${item.customer_phone || '-'}) • ${item.service_name}`;
     dom.admin.notificationList.appendChild(li);
   });
-}
-
-async function refreshNotificationsFromServer() {
-  const recent = await safeFetch(`${API_URL}/appointments/recent`);
-  if (!recent) return;
-  syncNotificationsFromBookings(recent);
 }
 
 function setAnalyticsPlaceholder() {
@@ -222,14 +161,24 @@ function createSlotLabel(hour) {
 function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
+  if (!state.services.length) {
+    const fallback = [
+      { id: 'placeholder-hair', name: 'Saç' },
+      { id: 'placeholder-beard', name: 'Sakal' },
+      { id: 'placeholder-hairbeard', name: 'Saç + Sakal' },
+    ];
 
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Hizmet seçiniz';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  select.appendChild(defaultOption);
-
+    select.innerHTML = '<option value="" disabled selected>Hizmet bulunamadı — örnek seçenekleri ekleyin</option>';
+    fallback.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.name} (örnek)`;
+      option.disabled = true;
+      select.appendChild(option);
+    });
+    return;
+  }
+  select.innerHTML = '<option value="">Hizmet seçiniz</option>';
   state.services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
@@ -257,7 +206,7 @@ function renderAdminPricing() {
         <p class="muted">Müşteri listesinde görünecek.</p>
       </div>
       <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
-      <button class="btn secondary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+      <button class="btn primary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
     `;
 
     const priceInput = row.querySelector('[data-price]');
@@ -269,118 +218,6 @@ function renderAdminPricing() {
     });
 
     dom.admin.pricingList.appendChild(row);
-  });
-}
-
-function renderProductPricing() {
-  if (!dom.admin.productPricingList) return;
-  dom.admin.productPricingList.innerHTML = '';
-
-  if (!state.products.length) {
-    dom.admin.productPricingList.innerHTML = '<p class="muted">Henüz ürün eklenmedi.</p>';
-    return;
-  }
-
-  state.products.forEach((product) => {
-    const row = document.createElement('div');
-    row.className = 'pricing-row product-row';
-    row.innerHTML = `
-      <div>
-        <strong>${product.name}</strong>
-        <p class="muted">Müşteriye ekstra ürün olarak sunulur.</p>
-      </div>
-      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
-      <button class="btn secondary small" data-save-product="${product.id}">Kaydet</button>
-    `;
-
-    const priceInput = row.querySelector('[data-product-price]');
-    const saveButton = row.querySelector('[data-save-product]');
-    saveButton.addEventListener('click', async () => {
-      const newPrice = Number(priceInput.value) || 0;
-      dom.admin.feedback.textContent = `${product.name} fiyatı güncelleniyor...`;
-      const result = await safeFetch(`${API_URL}/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price: newPrice }),
-      });
-      if (result) {
-        dom.admin.feedback.textContent = `${product.name} fiyatı güncellendi.`;
-        await loadProducts();
-      } else {
-        dom.admin.feedback.textContent = `${product.name} fiyatı güncellenemedi.`;
-      }
-    });
-
-    dom.admin.productPricingList.appendChild(row);
-  });
-}
-
-async function ensureServiceExistsByName(name) {
-  const existing = state.services.find((service) => service.name === name);
-  if (existing) return existing;
-
-  const created = await safeFetch(`${API_URL}/services`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, price: 0 }),
-  });
-
-  if (created?.id) {
-    await loadServices();
-    return state.services.find((service) => service.id === created.id || service.name === name);
-  }
-  return null;
-}
-
-async function selectServiceByName(name) {
-  if (!dom.customer.serviceSelect) return;
-  let targetOption = Array.from(dom.customer.serviceSelect.options).find((option) =>
-    option.textContent.startsWith(name)
-  );
-
-  if (!targetOption) {
-    const created = await ensureServiceExistsByName(name);
-    targetOption = Array.from(dom.customer.serviceSelect.options).find(
-      (option) => Number(option.value) === Number(created?.id)
-    );
-  }
-
-  if (targetOption) {
-    targetOption.selected = true;
-    dom.customer.feedback.textContent = '';
-  }
-}
-
-function renderPopularPills(list = []) {
-  if (!dom.customer.popularServices) return;
-  dom.customer.popularServices.innerHTML = '';
-
-  list.slice(0, 6).forEach((item) => {
-    const pill = document.createElement('button');
-    pill.type = 'button';
-    pill.className = 'pill';
-    pill.textContent = `${item.name} (${item.count || 0})`;
-    pill.addEventListener('click', () => selectServiceByName(item.name));
-    dom.customer.popularServices.appendChild(pill);
-  });
-}
-
-function renderPackagePills() {
-  if (!dom.customer.popularPackages) return;
-  dom.customer.popularPackages.innerHTML = '';
-
-  state.packages.slice(0, 4).forEach((pkg) => {
-    const pill = document.createElement('button');
-    pill.type = 'button';
-    pill.className = 'pill';
-    pill.textContent = pkg.name;
-    pill.addEventListener('click', async () => {
-      await selectServiceByName(pkg.name);
-      if (!dom.customer.notes.value) {
-        dom.customer.notes.value = pkg.description || pkg.name;
-      }
-    });
-    dom.customer.popularPackages.appendChild(pill);
   });
 }
 
@@ -517,9 +354,6 @@ async function loadServices() {
     services = await safeFetch(`${API_URL}/services`);
   }
 
-  await Promise.all(FALLBACK_SERVICES.map((service) => ensureServiceExistsByName(service.name)));
-  services = await safeFetch(`${API_URL}/services`);
-
   state.services = services?.length ? services : FALLBACK_SERVICES;
   renderServiceOptions();
   renderAdminPricing();
@@ -544,6 +378,22 @@ async function loadProducts() {
   state.products = products || [];
   renderProductSelector();
   renderProductPricing();
+}
+
+async function updateServicePrice(id, price) {
+  dom.admin.feedback.textContent = 'Fiyat güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Fiyat güncellendi.';
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
 }
 
 async function updateServicePrice(id, price) {
@@ -596,7 +446,15 @@ async function loadPackages() {
 
   const missingPackages = packages.filter((pkg) => !state.services.find((service) => service.name === pkg.name));
   if (missingPackages.length) {
-    await Promise.all(missingPackages.map((pkg) => ensureServiceExistsByName(pkg.name)));
+    await Promise.all(
+      missingPackages.map((pkg) =>
+        safeFetch(`${API_URL}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: pkg.name, price: 0 }),
+        })
+      )
+    );
     await loadServices();
   }
 }
@@ -728,7 +586,6 @@ async function fetchAdminSchedule() {
   buildSlotGrid(dom.admin.slotGrid, availability, bookings, 'admin');
   renderAdminAppointments(bookings || []);
   syncNotificationsFromBookings(bookings || [], state.adminDate);
-  await refreshNotificationsFromServer();
 }
 
 function renderAdminAppointments(list) {
@@ -814,7 +671,6 @@ async function handleAdminLogin(event) {
   setScreen('admin');
   dom.admin.feedback.textContent = '';
   await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
-  startNotificationPolling();
   await loadAnalytics();
 }
 
@@ -858,14 +714,6 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
-    const selectedService = state.services.find((service) => Number(service.id) === serviceId);
-    addNotification({
-      date: state.customerDate,
-      start_time: state.selectedSlot.start,
-      customer_name: state.customer?.full_name || 'Müşteri',
-      customer_phone: state.customer?.phone,
-      service_name: selectedService?.name || 'Hizmet',
-    });
     if (state.adminLoggedIn) {
       const name = state.customer?.full_name || 'Müşteri';
       const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
@@ -959,19 +807,6 @@ function attachEvents() {
     dom.admin.notificationPanel?.classList.toggle('hidden');
   });
 
-  dom.admin.refreshIncome?.addEventListener('click', async () => {
-    dom.admin.feedback.textContent = 'Gelir kartları güncelleniyor...';
-    await loadIncomeCards();
-    dom.admin.feedback.textContent = 'Gelir kartları güncellendi.';
-  });
-
-  dom.customer.productToggle?.addEventListener('click', () => {
-    dom.customer.productSelector?.classList.toggle('collapsed');
-    dom.customer.productToggle.textContent = dom.customer.productSelector.classList.contains('collapsed')
-      ? 'Ürünleri aç'
-      : 'Ürünleri gizle';
-  });
-
   dom.admin.markNotificationsRead?.addEventListener('click', () => {
     state.notifications = [];
     persistNotifications();
@@ -980,26 +815,10 @@ function attachEvents() {
   });
 }
 
-let notificationInterval;
-function startNotificationPolling() {
-  if (notificationInterval) clearInterval(notificationInterval);
-  notificationInterval = setInterval(async () => {
-    if (!state.adminLoggedIn) return;
-    await refreshNotificationsFromServer();
-    if (state.adminDate) {
-      const bookings = await safeFetch(`${API_URL}/appointments/day/${state.adminDate}`);
-      renderAdminAppointments(bookings || []);
-      syncNotificationsFromBookings(bookings || [], state.adminDate);
-    }
-  }, 20000);
-}
-
 async function init() {
   attachEvents();
   await loadServices();
   await Promise.all([loadProducts(), loadPackages(), loadExtras(), loadStats(), loadPopularInsights()]);
-  dom.customer.productSelector?.classList.add('collapsed');
-  if (dom.customer.productToggle) dom.customer.productToggle.textContent = 'Ürünleri aç';
   await fetchCustomerSchedule();
 }
 
