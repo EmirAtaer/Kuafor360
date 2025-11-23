@@ -40,7 +40,12 @@ const dom = {
     feedback: document.getElementById('admin-feedback'),
     appointments: document.getElementById('admin-appointments'),
     closedDays: document.getElementById('closed-days-list'),
-    pricingList: document.getElementById('admin-pricing'),
+    pricingServices: document.getElementById('admin-pricing-services'),
+    pricingProducts: document.getElementById('admin-pricing-products'),
+    pricingTabs: document.querySelectorAll('[data-pricing-tab]'),
+    addProductForm: document.getElementById('admin-add-product'),
+    productName: document.getElementById('admin-product-name'),
+    productPrice: document.getElementById('admin-product-price'),
     notificationToggle: document.getElementById('admin-notifications-toggle'),
     notificationPanel: document.getElementById('admin-notification-panel'),
     notificationCount: document.getElementById('admin-notification-count'),
@@ -53,6 +58,8 @@ const dom = {
     peakDays: document.getElementById('peak-days'),
     revenueBody: document.querySelector('#revenue-table tbody'),
     incomeCards: document.getElementById('income-cards'),
+    dailyRevenue: document.getElementById('daily-revenue'),
+    dailyRevenueButton: document.getElementById('refresh-daily-revenue'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -76,6 +83,13 @@ const state = {
   adminSchedule: null,
   notifications: [],
 };
+
+const FALLBACK_PRODUCTS = [
+  { name: 'Wax / Jöle', price: 120 },
+  { name: 'Saç Spreyi', price: 180 },
+  { name: 'Sakal Yağı', price: 220 },
+  { name: 'Şampuan', price: 160 },
+];
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
@@ -101,9 +115,29 @@ function persistNotifications() {
 }
 
 function addNotification(entry) {
-  state.notifications = [{ ...entry, id: Date.now() }, ...state.notifications];
+  if (state.notifications.some((item) => item.id === entry.id)) return;
+  state.notifications = [{ ...entry, id: entry.id || Date.now() }, ...state.notifications];
   persistNotifications();
   renderNotifications();
+}
+
+function syncNotificationsFromBookings(bookings = [], date) {
+  bookings.forEach((item) => {
+    addNotification({
+      id: item.id,
+      date: date || item.date,
+      start_time: item.start_time,
+      customer_name: item.customer_name || 'Müşteri',
+      customer_phone: item.customer_phone || '-',
+      service_name: item.service_name,
+    });
+  });
+}
+
+async function refreshNotificationsFromServer() {
+  const recent = await safeFetch(`${API_URL}/appointments/recent`);
+  if (!recent) return;
+  syncNotificationsFromBookings(recent);
 }
 
 function renderNotifications() {
@@ -133,6 +167,9 @@ function setAnalyticsPlaceholder() {
     '<tr><td class="muted" colspan="4">Gelir tablosu sadece yönetici girişinden sonra dolar.</td></tr>';
   if (dom.analytics.incomeCards) {
     dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartları yönetici girişiyle dolacak.</p>';
+  }
+  if (dom.analytics.dailyRevenue) {
+    dom.analytics.dailyRevenue.textContent = '-';
   }
 }
 
@@ -188,11 +225,11 @@ function renderServiceOptions() {
 }
 
 function renderAdminPricing() {
-  if (!dom.admin.pricingList) return;
-  dom.admin.pricingList.innerHTML = '';
+  if (!dom.admin.pricingServices) return;
+  dom.admin.pricingServices.innerHTML = '';
 
   if (!state.services.length) {
-    dom.admin.pricingList.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
+    dom.admin.pricingServices.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
     return;
   }
 
@@ -206,7 +243,7 @@ function renderAdminPricing() {
         <p class="muted">Müşteri listesinde görünecek.</p>
       </div>
       <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
-      <button class="btn primary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+      <button class="btn save small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
     `;
 
     const priceInput = row.querySelector('[data-price]');
@@ -217,8 +254,56 @@ function renderAdminPricing() {
       await updateServicePrice(service.id, newPrice);
     });
 
-    dom.admin.pricingList.appendChild(row);
+    dom.admin.pricingServices.appendChild(row);
   });
+}
+
+function renderAdminProductPricing() {
+  if (!dom.admin.pricingProducts) return;
+  dom.admin.pricingProducts.innerHTML = '';
+
+  if (!state.products.length) {
+    dom.admin.pricingProducts.innerHTML = '<p class="muted">Önce ürün ekleyin.</p>';
+    dom.admin.addProductForm?.classList.remove('hidden');
+    return;
+  }
+
+  state.products.forEach((product) => {
+    const row = document.createElement('div');
+    row.className = 'pricing-row';
+    row.innerHTML = `
+      <div>
+        <strong>${product.name}</strong>
+        <p class="muted">Müşteri ürün seçiminde görünecek.</p>
+      </div>
+      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
+      <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
+    `;
+
+    const priceInput = row.querySelector('[data-product-price]');
+    const saveButton = row.querySelector('[data-save-product]');
+
+    saveButton.addEventListener('click', async () => {
+      const newPrice = Number(priceInput.value) || 0;
+      await updateProductPrice(product.id, newPrice);
+    });
+
+    dom.admin.pricingProducts.appendChild(row);
+  });
+
+  dom.admin.addProductForm?.classList.remove('hidden');
+}
+
+function togglePricingTab(target) {
+  dom.admin.pricingTabs?.forEach((btn) => {
+    const isActive = btn.dataset.pricingTab === target;
+    btn.classList.toggle('active', isActive);
+  });
+
+  const showProducts = target === 'products';
+  dom.admin.pricingServices?.classList.toggle('hidden', showProducts);
+  dom.admin.pricingProducts?.classList.toggle('hidden', !showProducts);
+  dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
 }
 
 function renderProductSelector() {
@@ -360,9 +445,24 @@ async function loadServices() {
 }
 
 async function loadProducts() {
-  const products = await safeFetch(`${API_URL}/products`);
+  let products = await safeFetch(`${API_URL}/products`);
+
+  if (!products?.length) {
+    await Promise.all(
+      FALLBACK_PRODUCTS.map((product) =>
+        safeFetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product),
+        })
+      )
+    );
+    products = await safeFetch(`${API_URL}/products`);
+  }
+
   state.products = products || [];
   renderProductSelector();
+  renderAdminProductPricing();
 }
 
 async function updateServicePrice(id, price) {
@@ -378,6 +478,22 @@ async function updateServicePrice(id, price) {
     await loadServices();
   } else {
     dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
+}
+
+async function updateProductPrice(id, price) {
+  dom.admin.feedback.textContent = 'Ürün fiyatı güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/products/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Ürün fiyatı güncellendi.';
+    await loadProducts();
+  } else {
+    dom.admin.feedback.textContent = 'Ürün fiyatı güncellenemedi.';
   }
 }
 
@@ -443,6 +559,31 @@ async function loadExtras() {
   });
 }
 
+async function handleAddProduct(event) {
+  event.preventDefault();
+  if (!dom.admin.productName || !dom.admin.productPrice) return;
+
+  const name = dom.admin.productName.value?.trim();
+  const price = Number(dom.admin.productPrice.value) || 0;
+
+  if (!name) return;
+
+  dom.admin.feedback.textContent = 'Ürün ekleniyor...';
+  const result = await safeFetch(`${API_URL}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Ürün eklendi.';
+    dom.admin.addProductForm?.reset();
+    await loadProducts();
+  } else {
+    dom.admin.feedback.textContent = 'Ürün eklenemedi.';
+  }
+}
+
 async function loadPopularInsights() {
   const popular = await safeFetch(`${API_URL}/reports/popular-services`);
   state.popularServices = popular || [];
@@ -492,6 +633,23 @@ async function loadIncomeCards() {
   renderIncomeCards(periods || []);
 }
 
+function renderDailyRevenue(value) {
+  if (!dom.analytics.dailyRevenue) return;
+  dom.analytics.dailyRevenue.textContent = formatCurrency(Number(value) || 0);
+}
+
+async function refreshDailyRevenue(revenueRows) {
+  if (!state.adminLoggedIn) {
+    renderDailyRevenue(0);
+    return;
+  }
+
+  const rows = revenueRows || (await safeFetch(`${API_URL}/reports/revenue-summary`));
+  const today = new Date().toISOString().split('T')[0];
+  const todayRow = (rows || []).find((row) => row.date?.startsWith(today));
+  renderDailyRevenue(todayRow?.total_income || 0);
+}
+
 async function loadAnalytics() {
   if (!state.adminLoggedIn) {
     setAnalyticsPlaceholder();
@@ -531,6 +689,7 @@ async function loadAnalytics() {
 
   renderPopularPills(popularServices || []);
   await loadIncomeCards();
+  await refreshDailyRevenue(revenue);
 }
 
 async function fetchCustomerSchedule() {
@@ -683,6 +842,14 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
+    addNotification({
+      id: response.id,
+      date: state.customerDate,
+      start_time: state.selectedSlot.start,
+      customer_name: state.customer?.full_name,
+      customer_phone: state.customer?.phone,
+      service_name: state.services.find((service) => service.id === serviceId)?.name,
+    });
     if (state.adminLoggedIn) {
       const name = state.customer?.full_name || 'Müşteri';
       const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
@@ -781,10 +948,19 @@ function attachEvents() {
     renderNotifications();
     dom.admin.notificationPanel?.classList.add('hidden');
   });
+
+  dom.admin.pricingTabs?.forEach((btn) => {
+    btn.addEventListener('click', () => togglePricingTab(btn.dataset.pricingTab));
+  });
+
+  dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
+
+  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
 }
 
 async function init() {
   attachEvents();
+  togglePricingTab('services');
   await loadServices();
   await Promise.all([loadProducts(), loadPackages(), loadExtras(), loadStats(), loadPopularInsights()]);
   await fetchCustomerSchedule();

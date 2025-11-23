@@ -42,4 +42,19 @@ router.post('/', (req, res) => {
   });
 });
 
+// ÜRÜN GÜNCELLE
+router.put('/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, price } = req.body;
+
+  db.query(
+    'UPDATE products SET name = COALESCE(?, name), price = COALESCE(?, price) WHERE id = ?',
+    [name, price, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ message: 'Ürün güncellendi', affectedRows: result.affectedRows });
+    }
+  );
+});
+
 module.exports = router;
