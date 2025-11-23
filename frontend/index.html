@@ -16,10 +16,10 @@
         <div class="landing-grid">
           <div class="landing-copy">
             <p class="eyebrow">Altın Makas Stüdyosu</p>
-            <h1>Tek kuaför için çift girişli dijital randevu masası</h1>
+            <h1>Altın Makas müşterileri, hoş geldiniz</h1>
             <p>
-              Müşteriler hazır paketleri seçsin, Altın Makas ekibi takvimden gün/saat kapatsın. Çakışmalar otomatik
-              engellenir, herkese sadece gerekli bilgiler gösterilir.
+              Dijital randevu masamızla saç ve bakım hizmetlerinizi dakikalar içinde planlayın. Ekip takvimiyle eşlenmiş
+              bu ekran, çakışmaları otomatik engeller ve yalnızca ihtiyacınız olan bilgileri gösterir.
             </p>
             <div class="stat-row">
               <div>
@@ -103,14 +103,27 @@
             <div class="selected-slot" id="customer-selected-slot">Henüz saat seçmediniz.</div>
             <form id="customer-booking" class="booking-details">
               <div class="form-grid">
-                <label>
-                  Hizmet
-                  <select id="customer-service"></select>
-                </label>
+                <div class="service-toolbar">
+                  <label>
+                    Hizmet
+                    <select id="customer-service"></select>
+                  </label>
+                  <button class="btn ghost" type="button" id="toggle-products">Ürünleri aç</button>
+                </div>
                 <label>
                   Not
                   <input type="text" id="customer-notes" placeholder="Örn. kısa kesim, sakal kalsın" />
                 </label>
+              </div>
+              <div class="suggestion-row">
+                <div>
+                  <p class="muted">Popüler Hizmetler</p>
+                  <div id="popular-service-pills" class="pill-row"></div>
+                </div>
+                <div>
+                  <p class="muted">Popüler Paketler</p>
+                  <div id="popular-package-pills" class="pill-row"></div>
+                </div>
               </div>
               <div id="product-selector" class="product-selector"></div>
               <button class="btn primary" type="submit">Randevuyu oluştur</button>
@@ -139,7 +152,19 @@
             <h1>Takvimi kapat, saatleri blokla</h1>
             <p>Yoğun saatleri tek tıkla bloke et, tatil günlerini kapat ve analiz kartlarından trendleri izle.</p>
           </div>
-          <button class="btn ghost" id="admin-exit">Çıkış yap</button>
+          <div class="admin-actions">
+            <button class="btn ghost notifications" id="admin-notifications-toggle">
+              Bildirimler <span id="admin-notification-count" class="badge">0</span>
+            </button>
+            <button class="btn ghost" id="admin-exit">Çıkış yap</button>
+            <div class="notification-panel hidden" id="admin-notification-panel">
+              <div class="panel-header">
+                <h4>Yeni Randevu Bildirimleri</h4>
+                <button class="btn ghost small" id="mark-notifications-read">Okundu say</button>
+              </div>
+              <ul id="notification-list" class="list"></ul>
+            </div>
+          </div>
         </header>
         <div class="admin-layout">
           <div class="panel schedule-panel">
@@ -160,8 +185,28 @@
           </div>
           <aside class="admin-sidebar">
             <article class="panel small">
+              <h3>Hizmet Fiyatları</h3>
+              <p class="muted">Saç, sakal ve paket fiyatlarını yönetip müşteri ekranına yansıtın.</p>
+              <div id="admin-pricing" class="pricing-list"></div>
+            </article>
+            <article class="panel small">
+              <h3>Ürün Fiyatları</h3>
+              <p class="muted">Berber ürünlerini ekleyip fiyatlarını müşteriye göster.</p>
+              <div id="product-pricing" class="pricing-list"></div>
+            </article>
+            <article class="panel small">
+              <div class="panel-header">
+                <div>
+                  <h3>Gelir Kartları</h3>
+                  <p class="muted">Günlük, haftalık ve aylık gelirleri anlık gör.</p>
+                </div>
+                <button class="btn ghost small" id="refresh-income" type="button">Güncelle</button>
+              </div>
+              <div id="income-cards" class="income-cards"></div>
+            </article>
+            <article class="panel small">
               <h3>Günlük Randevular</h3>
-              <ul id="admin-appointments" class="list"></ul>
+              <ul id="admin-appointments" class="list scrollable"></ul>
             </article>
             <article class="panel small">
               <h3>Kapalı Günler</h3>
@@ -179,8 +224,8 @@
                   <ul id="popular-products"></ul>
                 </article>
                 <article>
-                  <h4>Yoğun Saatler</h4>
-                  <ul id="peak-times"></ul>
+                  <h4>Yoğun Günler</h4>
+                  <ul id="peak-days"></ul>
                 </article>
               </div>
             </article>

@@ -50,6 +50,21 @@ router.get('/popular-products', (_req, res) => {
   });
 });
 
+// HAFTALIK YOĞUN GÜNLER
+router.get('/peak-days', (_req, res) => {
+  const query = `
+    SELECT DAYNAME(a.date) AS weekday, COUNT(a.id) AS bookings
+    FROM appointments a
+    GROUP BY DAYNAME(a.date)
+    ORDER BY bookings DESC;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(results);
+  });
+});
+
 // HAFTALIK YOĞUNLUK (GÜN & SAAT)
 router.get('/peak-times', (_req, res) => {
   const query = `
@@ -102,6 +117,57 @@ router.get('/revenue-summary', (_req, res) => {
     if (err) return res.status(500).json({ error: err });
     res.json(results);
   });
+});
+
+// GÜNLÜK / HAFTALIK / AYLIK GELİR ÖZETİ
+router.get('/revenue-periods', (_req, res) => {
+  const periods = [
+    { label: 'Günlük', condition: 'DATE(a.date) = CURDATE()' },
+    { label: 'Haftalık', condition: "YEARWEEK(a.date, 1) = YEARWEEK(CURDATE(), 1)" },
+    { label: 'Aylık', condition: 'YEAR(a.date) = YEAR(CURDATE()) AND MONTH(a.date) = MONTH(CURDATE())' },
+  ];
+
+  const buildIncomePromise = ({ label, condition }) => {
+    const serviceQuery = `
+      SELECT COALESCE(SUM(s.price), 0) AS total
+      FROM appointments a
+      JOIN services s ON a.service_id = s.id
+      WHERE ${condition};
+    `;
+
+    const productQuery = `
+      SELECT COALESCE(SUM(p.price * ap.quantity), 0) AS total
+      FROM appointment_products ap
+      JOIN appointments a ON ap.appointment_id = a.id
+      JOIN products p ON ap.product_id = p.id
+      WHERE ${condition};
+    `;
+
+    const servicePromise = new Promise((resolve, reject) => {
+      db.query(serviceQuery, (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows?.[0]?.total || 0);
+      });
+    });
+
+    const productPromise = new Promise((resolve, reject) => {
+      db.query(productQuery, (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows?.[0]?.total || 0);
+      });
+    });
+
+    return Promise.all([servicePromise, productPromise]).then(([service, product]) => ({
+      period: label,
+      service_income: Number(service) || 0,
+      product_income: Number(product) || 0,
+      total_income: (Number(service) || 0) + (Number(product) || 0),
+    }));
+  };
+
+  Promise.all(periods.map(buildIncomePromise))
+    .then((rows) => res.json(rows))
+    .catch((err) => res.status(500).json({ error: err }));
 });
 
 module.exports = router;

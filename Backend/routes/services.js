@@ -51,4 +51,19 @@ router.post('/', (req, res) => {
   });
 });
 
+// HİZMET GÜNCELLE
+router.put('/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, price } = req.body;
+
+  db.query(
+    'UPDATE services SET name = COALESCE(?, name), price = COALESCE(?, price) WHERE id = ?',
+    [name, price, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+      res.json({ message: 'Hizmet güncellendi', affectedRows: result.affectedRows });
+    }
+  );
+});
+
 module.exports = router;
