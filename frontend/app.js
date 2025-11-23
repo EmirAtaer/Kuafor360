@@ -84,13 +84,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'curre
 function loadStoredNotifications() {
   try {
     const stored = localStorage.getItem('adminNotifications');
-    state.notifications = stored
-      ? JSON.parse(stored).map((item) => ({
-          ...item,
-          key:
-            item.key || `${item.date}-${item.start_time}-${item.customer_name || ''}-${item.customer_phone || ''}`,
-        }))
-      : [];
+    state.notifications = stored ? JSON.parse(stored) : [];
   } catch (error) {
     console.warn('Bildirimler yüklenemedi', error);
     state.notifications = [];
@@ -102,38 +96,9 @@ function persistNotifications() {
 }
 
 function addNotification(entry) {
-  const key =
-    entry.key || `${entry.date}-${entry.start_time}-${entry.customer_name || ''}-${entry.customer_phone || ''}`;
-  state.notifications = [{ ...entry, key, id: Date.now() }, ...state.notifications];
+  state.notifications = [{ ...entry, id: Date.now() }, ...state.notifications];
   persistNotifications();
   renderNotifications();
-}
-
-function syncNotificationsFromBookings(bookings, date) {
-  if (!bookings?.length) return;
-
-  const existingKeys = new Set(state.notifications.map((item) => item.key));
-  const newEntries = [];
-
-  bookings.forEach((booking) => {
-    const key = `${date}-${booking.start_time}-${booking.customer_name || ''}-${booking.customer_phone || ''}`;
-    if (existingKeys.has(key)) return;
-    newEntries.push({
-      date,
-      start_time: booking.start_time,
-      customer_name: booking.customer_name || 'Müşteri',
-      customer_phone: booking.customer_phone,
-      service_name: booking.service_name,
-      key,
-    });
-  });
-
-  if (newEntries.length) {
-    const stamped = newEntries.map((entry, index) => ({ ...entry, id: Date.now() + index }));
-    state.notifications = [...stamped, ...state.notifications];
-    persistNotifications();
-    renderNotifications();
-  }
 }
 
 function renderNotifications() {
@@ -188,14 +153,24 @@ function createSlotLabel(hour) {
 function renderServiceOptions() {
   const select = dom.customer.serviceSelect;
   select.innerHTML = '';
+  if (!state.services.length) {
+    const fallback = [
+      { id: 'placeholder-hair', name: 'Saç' },
+      { id: 'placeholder-beard', name: 'Sakal' },
+      { id: 'placeholder-hairbeard', name: 'Saç + Sakal' },
+    ];
 
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Hizmet seçiniz';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  select.appendChild(defaultOption);
-
+    select.innerHTML = '<option value="" disabled selected>Hizmet bulunamadı — örnek seçenekleri ekleyin</option>';
+    fallback.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.name} (örnek)`;
+      option.disabled = true;
+      select.appendChild(option);
+    });
+    return;
+  }
+  select.innerHTML = '<option value="">Hizmet seçiniz</option>';
   state.services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
@@ -632,14 +607,6 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
-    const selectedService = state.services.find((service) => Number(service.id) === serviceId);
-    addNotification({
-      date: state.customerDate,
-      start_time: state.selectedSlot.start,
-      customer_name: state.customer?.full_name || 'Müşteri',
-      customer_phone: state.customer?.phone,
-      service_name: selectedService?.name || 'Hizmet',
-    });
     if (state.adminLoggedIn) {
       const name = state.customer?.full_name || 'Müşteri';
       const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
