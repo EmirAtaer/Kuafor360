@@ -913,14 +913,18 @@ async function handleCustomerLogin(event) {
 
 async function handleAdminLogin(event) {
   event.preventDefault();
+  const username = (event.target.adminUser?.value || '').trim().toLowerCase();
   const password = event.target.adminPass.value;
-  if (password !== 'kuafor360') {
-    alert('Yanlış şifre.');
+  const isValidUser = ['ustakuafor', 'admin', 'yonetici'].includes(username);
+
+  if (!isValidUser || password !== 'kuafor360') {
+    dom.admin.feedback.textContent = 'Kullanıcı adı veya şifre hatalı.';
     return;
   }
+
+  dom.admin.feedback.textContent = '';
   state.adminLoggedIn = true;
   setScreen('admin');
-  dom.admin.feedback.textContent = '';
   await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
   await loadAnalytics();
 }
