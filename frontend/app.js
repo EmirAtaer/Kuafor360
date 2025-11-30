@@ -40,7 +40,15 @@ const dom = {
     feedback: document.getElementById('admin-feedback'),
     appointments: document.getElementById('admin-appointments'),
     closedDays: document.getElementById('closed-days-list'),
-    pricingList: document.getElementById('admin-pricing'),
+    pricingServices: document.getElementById('admin-pricing-services'),
+    pricingProducts: document.getElementById('admin-pricing-products'),
+    pricingTabs: document.querySelectorAll('[data-pricing-tab]'),
+    addServiceForm: document.getElementById('admin-add-service'),
+    serviceName: document.getElementById('admin-service-name'),
+    servicePrice: document.getElementById('admin-service-price'),
+    addProductForm: document.getElementById('admin-add-product'),
+    productName: document.getElementById('admin-product-name'),
+    productPrice: document.getElementById('admin-product-price'),
     notificationToggle: document.getElementById('admin-notifications-toggle'),
     notificationPanel: document.getElementById('admin-notification-panel'),
     notificationCount: document.getElementById('admin-notification-count'),
@@ -53,6 +61,12 @@ const dom = {
     peakDays: document.getElementById('peak-days'),
     revenueBody: document.querySelector('#revenue-table tbody'),
     incomeCards: document.getElementById('income-cards'),
+    periodBreakdown: document.getElementById('period-breakdown'),
+    revenueDate: document.getElementById('admin-revenue-date'),
+    revenueMonth: document.getElementById('admin-revenue-month'),
+    dailyRevenue: document.getElementById('daily-revenue'),
+    dailyRevenueDate: document.getElementById('daily-revenue-date'),
+    dailyRevenueButton: document.getElementById('refresh-daily-revenue'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -75,16 +89,60 @@ const state = {
   customerSchedule: null,
   adminSchedule: null,
   notifications: [],
+  revenueDate: new Date().toISOString().split('T')[0],
+  revenueMonth: new Date().getMonth() + 1,
 };
+
+const FALLBACK_PRODUCTS = [
+  { name: 'Wax / Jöle', price: 120 },
+  { name: 'Saç Spreyi', price: 180 },
+  { name: 'Sakal Yağı', price: 220 },
+  { name: 'Şampuan', price: 160 },
+];
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
+dom.analytics.revenueDate && (dom.analytics.revenueDate.value = state.revenueDate);
 
 setAnalyticsPlaceholder();
+initRevenueFilters();
 loadStoredNotifications();
 renderNotifications();
 
 const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
+
+function initRevenueFilters() {
+  if (!dom.analytics.revenueMonth) return;
+
+  const months = [
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık',
+  ];
+
+  dom.analytics.revenueMonth.innerHTML = months
+    .map((name, index) => {
+      const monthValue = index + 1;
+      const selected = monthValue === state.revenueMonth ? 'selected' : '';
+      return `<option value="${monthValue}" ${selected}>${name}</option>`;
+    })
+    .join('');
+
+  dom.analytics.revenueMonth.value = state.revenueMonth;
+
+  if (dom.analytics.revenueDate && !dom.analytics.revenueDate.value) {
+    dom.analytics.revenueDate.value = state.revenueDate;
+  }
+}
 
 function loadStoredNotifications() {
   try {
@@ -101,9 +159,29 @@ function persistNotifications() {
 }
 
 function addNotification(entry) {
-  state.notifications = [{ ...entry, id: Date.now() }, ...state.notifications];
+  if (state.notifications.some((item) => item.id === entry.id)) return;
+  state.notifications = [{ ...entry, id: entry.id || Date.now() }, ...state.notifications];
   persistNotifications();
   renderNotifications();
+}
+
+function syncNotificationsFromBookings(bookings = [], date) {
+  bookings.forEach((item) => {
+    addNotification({
+      id: item.id,
+      date: date || item.date,
+      start_time: item.start_time,
+      customer_name: item.customer_name || 'Müşteri',
+      customer_phone: item.customer_phone || '-',
+      service_name: item.service_name,
+    });
+  });
+}
+
+async function refreshNotificationsFromServer() {
+  const recent = await safeFetch(`${API_URL}/appointments/recent`);
+  if (!recent) return;
+  syncNotificationsFromBookings(recent);
 }
 
 function renderNotifications() {
@@ -133,6 +211,15 @@ function setAnalyticsPlaceholder() {
     '<tr><td class="muted" colspan="4">Gelir tablosu sadece yönetici girişinden sonra dolar.</td></tr>';
   if (dom.analytics.incomeCards) {
     dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartları yönetici girişiyle dolacak.</p>';
+  }
+  if (dom.analytics.periodBreakdown) {
+    dom.analytics.periodBreakdown.innerHTML = '<p class="muted">Gelir detayları burada görünecek.</p>';
+  }
+  if (dom.analytics.dailyRevenue) {
+    dom.analytics.dailyRevenue.textContent = '-';
+  }
+  if (dom.analytics.dailyRevenueDate) {
+    dom.analytics.dailyRevenueDate.textContent = '-';
   }
 }
 
@@ -188,11 +275,11 @@ function renderServiceOptions() {
 }
 
 function renderAdminPricing() {
-  if (!dom.admin.pricingList) return;
-  dom.admin.pricingList.innerHTML = '';
+  if (!dom.admin.pricingServices) return;
+  dom.admin.pricingServices.innerHTML = '';
 
   if (!state.services.length) {
-    dom.admin.pricingList.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
+    dom.admin.pricingServices.innerHTML = '<p class="muted">Henüz hizmet eklenmedi.</p>';
     return;
   }
 
@@ -206,7 +293,7 @@ function renderAdminPricing() {
         <p class="muted">Müşteri listesinde görünecek.</p>
       </div>
       <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
-      <button class="btn primary small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+      <button class="btn save small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
     `;
 
     const priceInput = row.querySelector('[data-price]');
@@ -217,8 +304,57 @@ function renderAdminPricing() {
       await updateServicePrice(service.id, newPrice);
     });
 
-    dom.admin.pricingList.appendChild(row);
+    dom.admin.pricingServices.appendChild(row);
   });
+}
+
+function renderAdminProductPricing() {
+  if (!dom.admin.pricingProducts) return;
+  dom.admin.pricingProducts.innerHTML = '';
+
+  if (!state.products.length) {
+    dom.admin.pricingProducts.innerHTML = '<p class="muted">Önce ürün ekleyin.</p>';
+    dom.admin.addProductForm?.classList.remove('hidden');
+    return;
+  }
+
+  state.products.forEach((product) => {
+    const row = document.createElement('div');
+    row.className = 'pricing-row';
+    row.innerHTML = `
+      <div>
+        <strong>${product.name}</strong>
+        <p class="muted">Müşteri ürün seçiminde görünecek.</p>
+      </div>
+      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
+      <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
+    `;
+
+    const priceInput = row.querySelector('[data-product-price]');
+    const saveButton = row.querySelector('[data-save-product]');
+
+    saveButton.addEventListener('click', async () => {
+      const newPrice = Number(priceInput.value) || 0;
+      await updateProductPrice(product.id, newPrice);
+    });
+
+    dom.admin.pricingProducts.appendChild(row);
+  });
+
+  dom.admin.addProductForm?.classList.remove('hidden');
+}
+
+function togglePricingTab(target) {
+  dom.admin.pricingTabs?.forEach((btn) => {
+    const isActive = btn.dataset.pricingTab === target;
+    btn.classList.toggle('active', isActive);
+  });
+
+  const showProducts = target === 'products';
+  dom.admin.pricingServices?.classList.toggle('hidden', showProducts);
+  dom.admin.pricingProducts?.classList.toggle('hidden', !showProducts);
+  dom.admin.addServiceForm?.classList.toggle('hidden', showProducts);
+  dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
 }
 
 function renderProductSelector() {
@@ -301,7 +437,12 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     if (status === 'booked') {
       const info = bookings?.find((item) => item.start_time === start);
       button.title = info ? `${info.service_name || ''} • ${info.customer_name || ''}` : 'Dolu';
-      button.disabled = true;
+      if (role !== 'admin') {
+        button.disabled = true;
+      } else {
+        button.classList.add('slot--actionable');
+        button.addEventListener('click', () => cancelAppointment(info?.id, start, scheduleData?.date));
+      }
     }
 
     if (status === 'blocked') {
@@ -360,9 +501,24 @@ async function loadServices() {
 }
 
 async function loadProducts() {
-  const products = await safeFetch(`${API_URL}/products`);
+  let products = await safeFetch(`${API_URL}/products`);
+
+  if (!products?.length) {
+    await Promise.all(
+      FALLBACK_PRODUCTS.map((product) =>
+        safeFetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(product),
+        })
+      )
+    );
+    products = await safeFetch(`${API_URL}/products`);
+  }
+
   state.products = products || [];
   renderProductSelector();
+  renderAdminProductPricing();
 }
 
 async function updateServicePrice(id, price) {
@@ -378,6 +534,22 @@ async function updateServicePrice(id, price) {
     await loadServices();
   } else {
     dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
+}
+
+async function updateProductPrice(id, price) {
+  dom.admin.feedback.textContent = 'Ürün fiyatı güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/products/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Ürün fiyatı güncellendi.';
+    await loadProducts();
+  } else {
+    dom.admin.feedback.textContent = 'Ürün fiyatı güncellenemedi.';
   }
 }
 
@@ -443,6 +615,56 @@ async function loadExtras() {
   });
 }
 
+async function handleAddProduct(event) {
+  event.preventDefault();
+  if (!dom.admin.productName || !dom.admin.productPrice) return;
+
+  const name = dom.admin.productName.value?.trim();
+  const price = Number(dom.admin.productPrice.value) || 0;
+
+  if (!name) return;
+
+  dom.admin.feedback.textContent = 'Ürün ekleniyor...';
+  const result = await safeFetch(`${API_URL}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Ürün eklendi.';
+    dom.admin.addProductForm?.reset();
+    await loadProducts();
+  } else {
+    dom.admin.feedback.textContent = 'Ürün eklenemedi.';
+  }
+}
+
+async function handleAddService(event) {
+  event.preventDefault();
+  if (!dom.admin.serviceName || !dom.admin.servicePrice) return;
+
+  const name = dom.admin.serviceName.value?.trim();
+  const price = Number(dom.admin.servicePrice.value) || 0;
+
+  if (!name) return;
+
+  dom.admin.feedback.textContent = 'Hizmet ekleniyor...';
+  const result = await safeFetch(`${API_URL}/services`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Hizmet eklendi.';
+    dom.admin.addServiceForm?.reset();
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Hizmet eklenemedi.';
+  }
+}
+
 async function loadPopularInsights() {
   const popular = await safeFetch(`${API_URL}/reports/popular-services`);
   state.popularServices = popular || [];
@@ -464,9 +686,13 @@ async function loadStats() {
 function renderIncomeCards(periods = []) {
   if (!dom.analytics.incomeCards) return;
   dom.analytics.incomeCards.innerHTML = '';
+  dom.analytics.periodBreakdown && (dom.analytics.periodBreakdown.innerHTML = '');
 
   if (!periods.length) {
     dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartı bulunamadı.</p>';
+    if (dom.analytics.periodBreakdown) {
+      dom.analytics.periodBreakdown.innerHTML = '<p class="muted">Gelir detayları için tarih ve ay seçin.</p>';
+    }
     return;
   }
 
@@ -480,6 +706,16 @@ function renderIncomeCards(periods = []) {
       <p><span class="muted">Toplam:</span> ${formatCurrency(row.total_income)}</p>
     `;
     dom.analytics.incomeCards.appendChild(card);
+
+    if (dom.analytics.periodBreakdown) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'breakdown-row';
+      rowEl.innerHTML = `
+        <span>${row.period}</span>
+        <strong>${formatCurrency(row.total_income)}</strong>
+      `;
+      dom.analytics.periodBreakdown.appendChild(rowEl);
+    }
   });
 }
 
@@ -488,8 +724,41 @@ async function loadIncomeCards() {
     renderIncomeCards([]);
     return;
   }
-  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
+  const params = new URLSearchParams({
+    date: state.revenueDate,
+    month: state.revenueMonth,
+  });
+
+  const periods = await safeFetch(`${API_URL}/reports/revenue-periods?${params.toString()}`);
   renderIncomeCards(periods || []);
+  await refreshDailyRevenue(periods);
+}
+
+function renderDailyRevenue(value) {
+  if (!dom.analytics.dailyRevenue) return;
+  dom.analytics.dailyRevenue.textContent = formatCurrency(Number(value) || 0);
+  if (dom.analytics.dailyRevenueDate) {
+    dom.analytics.dailyRevenueDate.textContent = state.revenueDate;
+  }
+}
+
+async function refreshDailyRevenue(revenueRows) {
+  if (!state.adminLoggedIn) {
+    renderDailyRevenue(0);
+    return;
+  }
+
+  let rows = revenueRows;
+  if (!rows) {
+    const params = new URLSearchParams({
+      date: state.revenueDate,
+      month: state.revenueMonth,
+    });
+    rows = await safeFetch(`${API_URL}/reports/revenue-periods?${params.toString()}`);
+  }
+
+  const dailyRow = (rows || []).find((row) => row.period?.startsWith('Günlük'));
+  renderDailyRevenue(dailyRow?.total_income || 0);
 }
 
 async function loadAnalytics() {
@@ -566,7 +835,19 @@ function renderAdminAppointments(list) {
 
   list.forEach((item) => {
     const li = document.createElement('li');
-    li.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+    li.className = 'appointment-row';
+
+    const info = document.createElement('div');
+    info.className = 'appointment-info';
+    info.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn ghost small';
+    cancelBtn.textContent = 'İptal';
+    cancelBtn.addEventListener('click', () => cancelAppointment(item.id, item.start_time, item.date));
+
+    li.append(info, cancelBtn);
     dom.admin.appointments.appendChild(li);
   });
 }
@@ -604,6 +885,28 @@ async function handleAdminSlotClick(startTime, status) {
     if (state.customerDate === state.adminDate) {
       await fetchCustomerSchedule();
     }
+  }
+}
+
+async function cancelAppointment(id, startTime, date) {
+  if (!state.adminLoggedIn || !id) return;
+  const label = `${date || state.adminDate} ${startTime || ''}`.trim();
+  const ok = confirm(`${label} randevusunu iptal etmek istediğinize emin misiniz?`);
+  if (!ok) return;
+
+  dom.admin.feedback.textContent = 'Randevu iptal ediliyor...';
+  const result = await safeFetch(`${API_URL}/appointments/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = result.message || 'Randevu iptal edildi.';
+    await Promise.all([fetchAdminSchedule(), loadAnalytics()]);
+    if (state.customerDate === state.adminDate) {
+      await fetchCustomerSchedule();
+    }
+  } else {
+    dom.admin.feedback.textContent = 'Randevu iptal edilirken hata oluştu.';
   }
 }
 
@@ -683,6 +986,14 @@ async function handleBookingSubmit(event) {
 
   if (response) {
     dom.customer.feedback.textContent = 'Randevu başarıyla oluşturuldu!';
+    addNotification({
+      id: response.id,
+      date: state.customerDate,
+      start_time: state.selectedSlot.start,
+      customer_name: state.customer?.full_name,
+      customer_phone: state.customer?.phone,
+      service_name: state.services.find((service) => service.id === serviceId)?.name,
+    });
     if (state.adminLoggedIn) {
       const name = state.customer?.full_name || 'Müşteri';
       const phone = state.customer?.phone ? ` (${state.customer.phone})` : '';
@@ -759,6 +1070,18 @@ function attachEvents() {
   dom.admin.date.addEventListener('change', async (event) => {
     state.adminDate = event.target.value;
     await fetchAdminSchedule();
+    if (dom.analytics.revenueDate) {
+      state.revenueDate = state.adminDate;
+      dom.analytics.revenueDate.value = state.revenueDate;
+      const selected = new Date(state.revenueDate);
+      if (!Number.isNaN(selected.getTime()) && dom.analytics.revenueMonth) {
+        state.revenueMonth = selected.getMonth() + 1;
+        dom.analytics.revenueMonth.value = state.revenueMonth;
+      }
+      if (state.adminLoggedIn) {
+        await loadIncomeCards();
+      }
+    }
   });
 
   dom.customer.bookingForm.addEventListener('submit', handleBookingSubmit);
@@ -781,10 +1104,34 @@ function attachEvents() {
     renderNotifications();
     dom.admin.notificationPanel?.classList.add('hidden');
   });
+
+  dom.admin.pricingTabs?.forEach((btn) => {
+    btn.addEventListener('click', () => togglePricingTab(btn.dataset.pricingTab));
+  });
+
+  dom.admin.addServiceForm?.addEventListener('submit', handleAddService);
+  dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
+
+  dom.analytics.dailyRevenueButton?.addEventListener('click', () => loadIncomeCards());
+  dom.analytics.revenueDate?.addEventListener('change', (event) => {
+    state.revenueDate = event.target.value;
+    const selected = new Date(state.revenueDate);
+    if (!Number.isNaN(selected.getTime()) && dom.analytics.revenueMonth) {
+      state.revenueMonth = selected.getMonth() + 1;
+      dom.analytics.revenueMonth.value = state.revenueMonth;
+    }
+    loadIncomeCards();
+  });
+
+  dom.analytics.revenueMonth?.addEventListener('change', (event) => {
+    state.revenueMonth = Number(event.target.value) || state.revenueMonth;
+    loadIncomeCards();
+  });
 }
 
 async function init() {
   attachEvents();
+  togglePricingTab('services');
   await loadServices();
   await Promise.all([loadProducts(), loadPackages(), loadExtras(), loadStats(), loadPopularInsights()]);
   await fetchCustomerSchedule();
