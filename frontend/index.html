@@ -189,19 +189,6 @@
                 <button class="btn tab" data-pricing-tab="products">Ürünler</button>
               </div>
               <div id="admin-pricing-services" class="pricing-list scroll-area"></div>
-              <form id="admin-add-service" class="add-service">
-                <div class="inline-inputs">
-                  <label>
-                    Hizmet adı
-                    <input type="text" id="admin-service-name" placeholder="Örn. Cilt Bakımı" required />
-                  </label>
-                  <label>
-                    Hizmet fiyatı
-                    <input type="number" id="admin-service-price" min="0" step="10" required />
-                  </label>
-                </div>
-                <button class="btn save" type="submit">Hizmeti ekle</button>
-              </form>
               <div id="admin-pricing-products" class="pricing-list scroll-area hidden"></div>
               <form id="admin-add-product" class="add-product hidden">
                 <label>
@@ -240,27 +227,15 @@
                 </article>
               </div>
             </article>
-            <article class="panel income-panel">
-              <div class="panel-header">
+            <article class="panel small">
+              <h3>Gelir Özeti (sadece yönetici)</h3>
+              <div class="income-actions">
                 <div>
-                  <h3>Gelir Özeti (seçilebilir)</h3>
-                  <p class="muted">Günlük, haftalık ve aylık tutarları tek kartta görün.</p>
+                  <p class="muted">Bugünkü gelir</p>
+                  <strong id="daily-revenue">-</strong>
                 </div>
-                <div class="income-actions">
-                  <label>
-                    Tarih seç
-                    <input type="date" id="admin-revenue-date" />
-                  </label>
-                  <label>
-                    Ay seç
-                    <select id="admin-revenue-month"></select>
-                  </label>
-                  <button class="btn ghost small" id="refresh-daily-revenue" type="button">Gelirleri getir</button>
-                </div>
+                <button class="btn ghost small" id="refresh-daily-revenue" type="button">Günlüğü getir</button>
               </div>
-              <div class="daily-highlight">Seçilen gün geliri (<span id="daily-revenue-date">-</span>): <strong id="daily-revenue">-</strong></div>
-              <div id="income-cards" class="income-grid"></div>
-              <div id="period-breakdown" class="period-breakdown"></div>
               <table id="revenue-table">
                 <thead>
                   <tr>
