@@ -13,9 +13,7 @@ const ensureScheduleTables = () => {
       note VARCHAR(255)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     (err) => {
-      if (err) {
-        console.error('Kapalı günler tablosu oluşturulurken bağlantı hatası oluştu:', err.message);
-      }
+      if (err) console.error('Kapalı gün tablosu oluşturulamadı:', err.message);
     }
   );
 
@@ -28,9 +26,7 @@ const ensureScheduleTables = () => {
       UNIQUE KEY uniq_slot (date, start_time)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     (err) => {
-      if (err) {
-        console.error('Bloklu saatler tablosu oluşturulurken bağlantı hatası oluştu:', err.message);
-      }
+      if (err) console.error('Bloklu saatler tablosu oluşturulamadı:', err.message);
     }
   );
 };

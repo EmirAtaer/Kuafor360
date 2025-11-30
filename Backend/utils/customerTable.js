@@ -14,9 +14,7 @@ const ensureCustomerTable = () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     (err) => {
-      if (err) {
-        console.error('Müşteri tablosu oluşturulurken bağlantı hatası oluştu:', err.message);
-      }
+      if (err) console.error('Müşteri tablosu oluşturulamadı:', err.message);
     }
   );
 };

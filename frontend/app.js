@@ -51,7 +51,7 @@ const dom = {
     notificationCount: document.getElementById('admin-notification-count'),
     notificationList: document.getElementById('notification-list'),
     markNotificationsRead: document.getElementById('mark-notifications-read'),
-  },
+    },
   analytics: {
     services: document.getElementById('popular-services'),
     products: document.getElementById('popular-products'),
@@ -86,12 +86,16 @@ const state = {
   revenueMonth: new Date().getMonth() + 1,
 };
 
-const FALLBACK_PRODUCTS = [
-  { name: 'Wax / Jöle', price: 120 },
-  { name: 'Saç Spreyi', price: 180 },
-  { name: 'Sakal Yağı', price: 220 },
-  { name: 'Şampuan', price: 160 },
-];
+const fallbackAvailability = (date) => ({
+  date,
+  closed: false,
+  note: null,
+  available_slots: HOURS.map((hour) => {
+    const { start, end } = createSlotLabel(hour);
+    return { start_time: start, end_time: end };
+  }),
+  blocked_slots: [],
+});
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
@@ -504,7 +508,23 @@ async function loadProducts() {
 
   state.products = products || [];
   renderProductSelector();
-  renderAdminProductPricing();
+  renderProductPricing();
+}
+
+async function updateServicePrice(id, price) {
+  dom.admin.feedback.textContent = 'Fiyat güncelleniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Fiyat güncellendi.';
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Fiyat güncellenemedi.';
+  }
 }
 
 async function updateServicePrice(id, price) {
@@ -787,10 +807,12 @@ async function fetchCustomerSchedule() {
     safeFetch(`${API_URL}/appointments/available?date=${state.customerDate}`),
     safeFetch(`${API_URL}/appointments/day/${state.customerDate}`),
   ]);
-  state.customerSchedule = { availability, bookings };
+  const safeAvailability = availability || fallbackAvailability(state.customerDate);
+  const safeBookings = bookings || [];
+  state.customerSchedule = { availability: safeAvailability, bookings: safeBookings };
   state.selectedSlot = null;
   dom.customer.selectedSlot.textContent = 'Henüz saat seçmediniz.';
-  buildSlotGrid(dom.customer.slotGrid, availability, bookings, 'customer');
+  buildSlotGrid(dom.customer.slotGrid, safeAvailability, safeBookings, 'customer');
 }
 
 async function fetchAdminSchedule() {
@@ -903,10 +925,16 @@ async function handleCustomerLogin(event) {
     body: JSON.stringify(payload),
   });
 
-  if (!response) return;
+  if (!response) {
+    const tempCustomer = { id: `local-${Date.now()}`, full_name: payload.full_name, phone: payload.phone };
+    state.customer = tempCustomer;
+    dom.customer.feedback.textContent = 'Sunucuya erişilemedi, yerel modda devam ediyorsunuz.';
+  } else {
+    state.customer = response;
+    dom.customer.feedback.textContent = '';
+  }
 
-  state.customer = response;
-  dom.customer.greeting.textContent = `Hoş geldin ${response.full_name}!`;
+  dom.customer.greeting.textContent = `Hoş geldin ${state.customer.full_name}!`;
   setScreen('customer');
   await fetchCustomerSchedule();
 }
@@ -1041,6 +1069,7 @@ function attachEvents() {
   dom.admin.exit.addEventListener('click', () => {
     state.adminLoggedIn = false;
     dom.admin.feedback.textContent = '';
+    if (notificationInterval) clearInterval(notificationInterval);
     setAnalyticsPlaceholder();
     setScreen('landing');
   });
