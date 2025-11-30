@@ -64,6 +64,10 @@ const dom = {
     incomeCards: document.getElementById('income-cards'),
     dailyRevenue: document.getElementById('daily-revenue'),
     dailyRevenueButton: document.getElementById('refresh-daily-revenue'),
+    incomeTabs: document.querySelectorAll('[data-income-period]'),
+    incomeService: document.getElementById('income-service'),
+    incomeProduct: document.getElementById('income-product'),
+    incomePeriodLabel: document.getElementById('income-period-label'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -152,6 +156,18 @@ async function refreshNotificationsFromServer() {
   syncNotificationsFromBookings(recent);
 }
 
+function startNotificationPolling() {
+  if (state.notificationInterval) return;
+  state.notificationInterval = setInterval(refreshNotificationsFromServer, 20000);
+}
+
+function stopNotificationPolling() {
+  if (state.notificationInterval) {
+    clearInterval(state.notificationInterval);
+    state.notificationInterval = null;
+  }
+}
+
 function renderNotifications() {
   if (!dom.admin.notificationCount || !dom.admin.notificationList) return;
 
@@ -183,6 +199,9 @@ function setAnalyticsPlaceholder() {
   if (dom.analytics.dailyRevenue) {
     dom.analytics.dailyRevenue.textContent = '-';
   }
+  if (dom.analytics.incomeService) dom.analytics.incomeService.textContent = '-';
+  if (dom.analytics.incomeProduct) dom.analytics.incomeProduct.textContent = '-';
+  if (dom.analytics.incomePeriodLabel) dom.analytics.incomePeriodLabel.textContent = 'Gelir özeti';
 }
 
 async function safeFetch(url, options) {
@@ -403,7 +422,12 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'slot';
-    button.textContent = `${start} - ${end}`;
+    const baseLabel = `${start} - ${end}`;
+    if (role === 'admin') {
+      button.innerHTML = `<span class="slot-time">${baseLabel}</span>`;
+    } else {
+      button.textContent = baseLabel;
+    }
 
     let status = 'booked';
     if (blockedSet.has(start)) status = 'blocked';
@@ -419,11 +443,30 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     if (status === 'booked') {
       const info = bookings?.find((item) => item.start_time === start);
       button.title = info ? `${info.service_name || ''} • ${info.customer_name || ''}` : 'Dolu';
+      if (role === 'admin') {
+        const customerLabel = info?.customer_name ? ` • ${info.customer_name}` : '';
+        const meta = info?.service_name ? `${info.service_name}${customerLabel}` : customerLabel.slice(3);
+        button.innerHTML = `
+          <span class="slot-time">${baseLabel}</span>
+          <span class="slot-meta">
+            <span class="pill locked">Kilitli</span>
+            ${meta ? `<span>${meta}</span>` : ''}
+          </span>
+        `;
+      }
       button.disabled = true;
     }
 
     if (status === 'blocked') {
       button.title = 'Admin tarafından bloke edildi';
+      if (role === 'admin') {
+        button.innerHTML = `
+          <span class="slot-time">${baseLabel}</span>
+          <span class="slot-meta">
+            <span class="pill blocked">Bloke</span>
+          </span>
+        `;
+      }
       if (role === 'customer') button.disabled = true;
     }
 
@@ -657,30 +700,75 @@ function renderIncomeCards(periods = []) {
   });
 }
 
-async function loadIncomeCards() {
-  if (!state.adminLoggedIn) {
-    renderIncomeCards([]);
-    return;
-  }
-  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
-  renderIncomeCards(periods || []);
-}
-
-function renderDailyRevenue(value) {
-  if (!dom.analytics.dailyRevenue) return;
-  dom.analytics.dailyRevenue.textContent = formatCurrency(Number(value) || 0);
-}
-
-async function refreshDailyRevenue(revenueRows) {
-  if (!state.adminLoggedIn) {
-    renderDailyRevenue(0);
-    return;
+function renderIncomeSummary(periods) {
+  if (Array.isArray(periods)) {
+    state.incomePeriods = periods;
   }
 
-  const rows = revenueRows || (await safeFetch(`${API_URL}/reports/revenue-summary`));
-  const today = new Date().toISOString().split('T')[0];
-  const todayRow = (rows || []).find((row) => row.date?.startsWith(today));
-  renderDailyRevenue(todayRow?.total_income || 0);
+  const tabs = dom.analytics.incomeTabs || [];
+  tabs.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.incomePeriod === state.selectedIncomePeriod);
+  });
+
+  const labelMap = {
+    Günlük: 'Bugünkü gelir',
+    Haftalık: 'Bu hafta toplam',
+    Aylık: 'Bu ay toplam',
+  };
+
+  const current = state.incomePeriods.find((row) => row.period === state.selectedIncomePeriod) || state.incomePeriods[0] || null;
+  if (dom.analytics.incomePeriodLabel) {
+    dom.analytics.incomePeriodLabel.textContent = labelMap[state.selectedIncomePeriod] || 'Gelir özeti';
+  }
+
+  if (dom.analytics.dailyRevenue) {
+    const value = current?.total_income || 0;
+    dom.analytics.dailyRevenue.textContent = formatCurrency(value);
+  }
+
+  if (dom.analytics.incomeService) {
+    dom.analytics.incomeService.textContent = formatCurrency(current?.service_income || 0);
+  }
+
+  if (dom.analytics.incomeProduct) {
+    dom.analytics.incomeProduct.textContent = formatCurrency(current?.product_income || 0);
+  }
+
+  renderIncomeCards(state.incomePeriods);
+}
+
+function renderRevenueTable(rows = []) {
+  dom.analytics.revenueBody.innerHTML = '';
+  if (!rows.length) {
+    dom.analytics.revenueBody.innerHTML = '<tr><td class="muted" colspan="4">Henüz gelir kaydı yok.</td></tr>';
+    return;
+  }
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.date?.split('T')[0] ?? '-'}</td>
+      <td>${formatCurrency(row.service_income || 0)}</td>
+      <td>${formatCurrency(row.product_income || 0)}</td>
+      <td>${formatCurrency(row.total_income || 0)}</td>
+    `;
+    dom.analytics.revenueBody.appendChild(tr);
+  });
+}
+
+async function refreshIncomeData(revenueRows) {
+  if (!state.adminLoggedIn) {
+    renderIncomeSummary([]);
+    renderRevenueTable([]);
+    return;
+  }
+
+  const [periods, revenue] = await Promise.all([
+    safeFetch(`${API_URL}/reports/revenue-periods`),
+    revenueRows ? Promise.resolve(revenueRows) : safeFetch(`${API_URL}/reports/revenue-summary`),
+  ]);
+
+  renderRevenueTable(revenue || []);
+  renderIncomeSummary(periods || []);
 }
 
 async function loadAnalytics() {
@@ -708,21 +796,8 @@ async function loadAnalytics() {
   buildList(dom.analytics.products, popularProducts);
   buildList(dom.analytics.peakDays, peakDays);
 
-  dom.analytics.revenueBody.innerHTML = '';
-  (revenue ?? []).forEach((row) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.date?.split('T')[0] ?? '-'}</td>
-      <td>${formatCurrency(row.service_income || 0)}</td>
-      <td>${formatCurrency(row.product_income || 0)}</td>
-      <td>${formatCurrency(row.total_income || 0)}</td>
-    `;
-    dom.analytics.revenueBody.appendChild(tr);
-  });
-
   renderPopularPills(popularServices || []);
-  await loadIncomeCards();
-  await refreshDailyRevenue(revenue);
+  await refreshIncomeData(revenue);
 }
 
 async function fetchCustomerSchedule() {
@@ -758,7 +833,17 @@ function renderAdminAppointments(list) {
 
   list.forEach((item) => {
     const li = document.createElement('li');
-    li.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+    const phone = item.customer_phone || '-';
+    li.innerHTML = `
+      <div class="appointment-meta">
+        <div class="slot-meta">
+          <strong>${item.start_time}</strong>
+          <span class="pill locked">Kilitli</span>
+        </div>
+        <div>${item.service_name || '-'}</div>
+        <small>${item.customer_name || 'Müşteri'} (${phone})</small>
+      </div>
+    `;
     dom.admin.appointments.appendChild(li);
   });
 }
@@ -832,6 +917,7 @@ async function handleAdminLogin(event) {
   setScreen('admin');
   dom.admin.feedback.textContent = '';
   await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
+  startNotificationPolling();
   await loadAnalytics();
 }
 
@@ -946,8 +1032,11 @@ function attachEvents() {
   });
   dom.admin.exit.addEventListener('click', () => {
     state.adminLoggedIn = false;
+    state.incomePeriods = [];
+    state.selectedIncomePeriod = 'Günlük';
     dom.admin.feedback.textContent = '';
     setAnalyticsPlaceholder();
+    stopNotificationPolling();
     setScreen('landing');
   });
 

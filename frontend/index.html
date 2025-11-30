@@ -188,7 +188,7 @@
             <p class="feedback" id="admin-feedback"></p>
           </div>
           <aside class="admin-sidebar">
-            <article class="panel small">
+            <article class="panel small wide">
               <h3>Hizmet Fiyatları</h3>
               <p class="muted">Saç, sakal ve paket fiyatlarını yönetip müşteri ekranına yansıtın.</p>
               <div class="pricing-tabs">
@@ -208,6 +208,41 @@
                 </label>
                 <button class="btn save" type="submit">Ürünü ekle</button>
               </form>
+            </article>
+            <article class="panel small wide revenue-panel">
+              <div class="income-header">
+                <div>
+                  <h3>Gelir Özeti</h3>
+                  <p class="muted">Günlük, haftalık ve aylık kazançları tek bakışta görün.</p>
+                </div>
+                <div class="income-tabs" id="income-period-tabs">
+                  <button class="btn tab active" data-income-period="Günlük">Günlük</button>
+                  <button class="btn tab" data-income-period="Haftalık">Haftalık</button>
+                  <button class="btn tab" data-income-period="Aylık">Aylık</button>
+                </div>
+              </div>
+              <div class="income-highlight">
+                <div>
+                  <p class="muted" id="income-period-label">Bugünkü gelir</p>
+                  <strong id="daily-revenue">-</strong>
+                  <p class="muted breakdown">Hizmet: <span id="income-service">-</span> • Ürün: <span id="income-product">-</span></p>
+                </div>
+                <div class="income-actions">
+                  <button class="btn primary small" id="refresh-daily-revenue" type="button">Gelirleri güncelle</button>
+                </div>
+              </div>
+              <div id="income-cards" class="income-cards"></div>
+              <table id="revenue-table">
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hizmet</th>
+                    <th>Ürün</th>
+                    <th>Toplam</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </article>
             <article class="panel small">
               <h3>Günlük Randevular</h3>

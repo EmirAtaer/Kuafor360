@@ -112,7 +112,7 @@ body {
   position: relative;
   z-index: 1;
   padding: clamp(1rem, 2vw, 2.5rem);
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
@@ -388,7 +388,8 @@ textarea:focus {
 }
 
 .admin-layout {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(520px, 1.35fr) minmax(420px, 1fr);
+  align-items: start;
 }
 
 .schedule-panel {
@@ -492,13 +493,15 @@ textarea:focus {
   padding: 0.75rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  text-align: center;
+  text-align: left;
   background: rgba(15, 23, 42, 0.55);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
   animation: pulseIn 0.35s ease both;
   color: #e2e8f0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 22px rgba(0, 0, 0, 0.18);
+  display: grid;
+  gap: 0.25rem;
 }
 
 .slot:hover {
@@ -616,6 +619,37 @@ textarea:focus {
   color: var(--primary);
 }
 
+.slot-time {
+  font-weight: 700;
+}
+
+.slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pill {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.pill.locked {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.pill.blocked {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
 .muted {
   color: var(--muted);
   font-size: 0.9rem;
@@ -629,7 +663,7 @@ textarea:focus {
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -711,6 +745,64 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
+}
+
+.panel.wide {
+  width: 100%;
+}
+
+.income-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.income-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.income-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.85rem;
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6));
+}
+
+.income-highlight strong {
+  font-size: 1.6rem;
+}
+
+.income-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.income-card {
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.85rem;
+  background: rgba(2, 6, 23, 0.45);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.income-card strong {
+  font-size: 1.1rem;
+}
+
+.breakdown {
+  margin-top: 0.25rem;
 }
 
 .analytics article {
@@ -816,12 +908,29 @@ textarea:focus {
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+.appointment-meta {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.appointment-meta strong {
+  font-size: 1rem;
+}
+
+.appointment-meta small {
+  color: var(--muted);
+}
+
 .hidden {
   display: none !important;
 }
 
 @media (max-width: 960px) {
   .customer-layout,
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
   .admin-layout {
     grid-template-columns: 1fr;
   }
