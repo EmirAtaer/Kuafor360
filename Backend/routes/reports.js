@@ -120,14 +120,41 @@ router.get('/revenue-summary', (_req, res) => {
 });
 
 // GÜNLÜK / HAFTALIK / AYLIK GELİR ÖZETİ
-router.get('/revenue-periods', (_req, res) => {
-  const periods = [
-    { label: 'Günlük', condition: 'DATE(a.date) = CURDATE()' },
-    { label: 'Haftalık', condition: "YEARWEEK(a.date, 1) = YEARWEEK(CURDATE(), 1)" },
-    { label: 'Aylık', condition: 'YEAR(a.date) = YEAR(CURDATE()) AND MONTH(a.date) = MONTH(CURDATE())' },
+router.get('/revenue-periods', (req, res) => {
+  const requestedDate = req.query.date || new Date().toISOString().split('T')[0];
+  const parsedDate = new Date(requestedDate);
+  const validDate = !Number.isNaN(parsedDate.getTime());
+  const baseDate = validDate ? parsedDate : new Date();
+  const selectedDate = baseDate.toISOString().split('T')[0];
+  const monthFromDate = baseDate.getMonth() + 1;
+  const month = Number(req.query.month) || monthFromDate;
+  const year = Number(req.query.year) || baseDate.getFullYear();
+  const monthNames = [
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık',
   ];
 
-  const buildIncomePromise = ({ label, condition }) => {
+  const periods = [
+    { label: `Günlük (${selectedDate})`, condition: 'DATE(a.date) = ?', params: [selectedDate] },
+    { label: 'Haftalık (seçilen tarih)', condition: 'YEARWEEK(a.date, 1) = YEARWEEK(?, 1)', params: [selectedDate] },
+    {
+      label: `Aylık (${monthNames[month - 1] || 'Seçilen ay'} ${year})`,
+      condition: 'YEAR(a.date) = ? AND MONTH(a.date) = ?',
+      params: [year, month],
+    },
+  ];
+
+  const buildIncomePromise = ({ label, condition, params }) => {
     const serviceQuery = `
       SELECT COALESCE(SUM(s.price), 0) AS total
       FROM appointments a
@@ -144,14 +171,14 @@ router.get('/revenue-periods', (_req, res) => {
     `;
 
     const servicePromise = new Promise((resolve, reject) => {
-      db.query(serviceQuery, (err, rows) => {
+      db.query(serviceQuery, params, (err, rows) => {
         if (err) return reject(err);
         resolve(rows?.[0]?.total || 0);
       });
     });
 
     const productPromise = new Promise((resolve, reject) => {
-      db.query(productQuery, (err, rows) => {
+      db.query(productQuery, params, (err, rows) => {
         if (err) return reject(err);
         resolve(rows?.[0]?.total || 0);
       });

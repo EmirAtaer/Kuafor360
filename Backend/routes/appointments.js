@@ -224,4 +224,26 @@ router.get('/detail/:id', (req, res) => {
   });
 });
 
+// RANDEVU İPTAL ET (admin için)
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: 'Randevu ID zorunludur.' });
+  }
+
+  db.query('DELETE FROM appointment_products WHERE appointment_id = ?', [id], (err) => {
+    if (err) return res.status(500).json({ error: err });
+
+    db.query('DELETE FROM appointments WHERE id = ?', [id], (err2, result) => {
+      if (err2) return res.status(500).json({ error: err2 });
+      if (!result.affectedRows) {
+        return res.status(404).json({ message: 'Randevu bulunamadı.' });
+      }
+
+      res.json({ message: 'Randevu iptal edildi.', removed: result.affectedRows });
+    });
+  });
+});
+
 module.exports = router;

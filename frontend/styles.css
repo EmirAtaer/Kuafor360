@@ -94,6 +94,20 @@ body {
   }
 }
 
+@keyframes popCard {
+  0% {
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+  }
+  80% {
+    transform: translateY(-4px) scale(1.01);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
 .app-shell {
   position: relative;
   z-index: 1;
@@ -190,7 +204,8 @@ body[data-screen='admin'] .view--admin {
   box-shadow: 0 15px 45px rgba(15, 23, 42, 0.5);
   position: relative;
   overflow: hidden;
-  animation: glowIn 0.7s ease, floatCard 14s ease-in-out infinite alternate;
+  animation: glowIn 0.7s ease, floatCard 14s ease-in-out infinite alternate, popCard 0.7s ease;
+  backdrop-filter: blur(6px);
 }
 
 .panel::before {
@@ -262,7 +277,7 @@ textarea:focus {
   cursor: pointer;
   font-weight: 600;
   padding: 0.75rem 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease, filter 0.25s ease;
 }
 
 .btn.small {
@@ -274,6 +289,12 @@ textarea:focus {
   background: linear-gradient(135deg, #f59e42, #f2831f);
   color: white;
   box-shadow: 0 10px 26px rgba(245, 158, 66, 0.28);
+}
+
+.btn.save {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #ecfdf3;
+  box-shadow: 0 10px 26px rgba(34, 197, 94, 0.25);
 }
 
 .btn.dark {
@@ -296,6 +317,7 @@ textarea:focus {
 .btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 18px 35px rgba(15, 23, 42, 0.35);
+  filter: saturate(1.1);
 }
 
 .btn:active {
@@ -373,6 +395,28 @@ textarea:focus {
   overflow: hidden;
 }
 
+.scroll-area {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 115, 22, 0.4) rgba(15, 23, 42, 0.6);
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.7), rgba(59, 130, 246, 0.5));
+  border-radius: 999px;
+}
+
+.scroll-area::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 999px;
+}
+
 .schedule-controls {
   display: flex;
   justify-content: space-between;
@@ -418,11 +462,15 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.85rem;
-  max-height: 380px;
+  max-height: 420px;
   overflow-y: auto;
   padding-right: 0.25rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(59, 130, 246, 0.5) rgba(15, 23, 42, 0.6);
+}
+
+.slot-grid.admin {
+  max-height: 400px;
 }
 
 .slot-grid::-webkit-scrollbar {
@@ -462,8 +510,10 @@ textarea:focus {
 }
 
 .slot--selected {
-  background: rgba(245, 158, 66, 0.25);
+  background: rgba(245, 158, 66, 0.3);
   border-color: rgba(245, 158, 66, 0.95);
+  box-shadow: 0 10px 24px rgba(245, 158, 66, 0.35);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .slot--booked {
@@ -477,6 +527,12 @@ textarea:focus {
   border-style: dashed;
 }
 
+.slot--actionable {
+  border-style: solid;
+  cursor: pointer;
+  background: rgba(59, 130, 246, 0.18);
+}
+
 .slot--closed {
   opacity: 0.55;
   cursor: not-allowed;
@@ -488,6 +544,18 @@ textarea:focus {
   border-radius: 0.9rem;
   border: 1px dashed rgba(148, 163, 184, 0.4);
   color: var(--muted);
+  background: rgba(245, 158, 66, 0.08);
+}
+
+.appointment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.appointment-info {
+  flex: 1;
 }
 
 .booking-details {
@@ -553,7 +621,7 @@ textarea:focus {
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1rem;
 }
 
@@ -636,21 +704,71 @@ textarea:focus {
   background: rgba(2, 6, 23, 0.5);
 }
 
+.income-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
 .pricing-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
+.pricing-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn.tab {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+.btn.tab.active {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(59, 130, 246, 0.25));
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
 .pricing-row {
   display: grid;
-  grid-template-columns: 1fr 140px 100px;
-  align-items: center;
-  gap: 0.5rem;
+  grid-template-columns: 1.2fr minmax(140px, 170px) auto;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: 0.6rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 0.85rem;
   background: rgba(2, 6, 23, 0.5);
+}
+
+.pricing-row .btn {
+  justify-self: flex-end;
+  width: 100%;
+  max-width: 120px;
+}
+
+.add-product,
+.add-service {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  padding: 0.75rem;
+  border-radius: 0.85rem;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.inline-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
 }
 
 .pricing-row input[type='number'] {
@@ -674,6 +792,65 @@ textarea:focus {
 #revenue-table td {
   padding: 0.35rem 0.5rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.income-panel {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.85));
+}
+
+.income-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.income-card {
+  padding: 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.income-card strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 1.05rem;
+}
+
+.income-card p {
+  margin: 0.1rem 0;
+}
+
+.daily-highlight {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.daily-highlight strong {
+  color: #f59e0b;
+}
+
+.period-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.breakdown-row {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hidden {
