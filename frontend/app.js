@@ -48,6 +48,9 @@ const dom = {
     pricingProducts: document.getElementById('admin-pricing-products'),
     pricingTabs: document.querySelectorAll('[data-pricing-tab]'),
     addProductForm: document.getElementById('admin-add-product'),
+    addServiceForm: document.getElementById('admin-add-service'),
+    serviceName: document.getElementById('admin-service-name'),
+    servicePrice: document.getElementById('admin-service-price'),
     productName: document.getElementById('admin-product-name'),
     productPrice: document.getElementById('admin-product-price'),
     notificationToggle: document.getElementById('admin-notifications-toggle'),
@@ -65,6 +68,7 @@ const dom = {
     dailyRevenue: document.getElementById('daily-revenue'),
     dailyRevenueButton: document.getElementById('refresh-daily-revenue'),
     incomeTabs: document.querySelectorAll('[data-income-period]'),
+    analyticsPeriodTabs: document.querySelectorAll('[data-analytics-period]'),
     incomeService: document.getElementById('income-service'),
     incomeProduct: document.getElementById('income-product'),
     incomePeriodLabel: document.getElementById('income-period-label'),
@@ -92,6 +96,9 @@ const state = {
   adminSchedule: null,
   notifications: [],
   productsExpanded: true,
+  incomePeriods: [],
+  selectedIncomePeriod: 'Günlük',
+  analyticsPeriod: 'daily',
 };
 
 const FALLBACK_PRODUCTS = [
@@ -334,6 +341,7 @@ function togglePricingTab(target) {
   const showProducts = target === 'products';
   dom.admin.pricingServices?.classList.toggle('hidden', showProducts);
   dom.admin.pricingProducts?.classList.toggle('hidden', !showProducts);
+  dom.admin.addServiceForm?.classList.toggle('hidden', showProducts);
   dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
 }
 
@@ -635,6 +643,29 @@ async function loadExtras() {
   });
 }
 
+async function handleAddService(event) {
+  event.preventDefault();
+  const name = dom.admin.serviceName?.value?.trim();
+  const price = Number(dom.admin.servicePrice?.value) || 0;
+
+  if (!name) return;
+
+  dom.admin.feedback.textContent = 'Hizmet ekleniyor...';
+  const result = await safeFetch(`${API_URL}/services`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Hizmet eklendi.';
+    dom.admin.addServiceForm?.reset();
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Hizmet eklenemedi.';
+  }
+}
+
 async function handleAddProduct(event) {
   event.preventDefault();
   if (!dom.admin.productName || !dom.admin.productPrice) return;
@@ -712,8 +743,8 @@ function renderIncomeSummary(periods) {
 
   const labelMap = {
     Günlük: 'Bugünkü gelir',
-    Haftalık: 'Bu hafta toplam',
-    Aylık: 'Bu ay toplam',
+    Haftalık: 'Bu haftanın geliri',
+    Aylık: 'Bu ayın geliri',
   };
 
   const current = state.incomePeriods.find((row) => row.period === state.selectedIncomePeriod) || state.incomePeriods[0] || null;
@@ -735,6 +766,12 @@ function renderIncomeSummary(periods) {
   }
 
   renderIncomeCards(state.incomePeriods);
+}
+
+function renderAnalyticsPeriodTabs() {
+  dom.analytics.analyticsPeriodTabs?.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.analyticsPeriod === state.analyticsPeriod);
+  });
 }
 
 function renderRevenueTable(rows = []) {
@@ -771,15 +808,22 @@ async function refreshIncomeData(revenueRows) {
   renderIncomeSummary(periods || []);
 }
 
+async function refreshDailyRevenue() {
+  const revenue = await safeFetch(`${API_URL}/reports/revenue-summary`);
+  await refreshIncomeData(revenue);
+}
+
 async function loadAnalytics() {
   if (!state.adminLoggedIn) {
     setAnalyticsPlaceholder();
     return;
   }
+  renderAnalyticsPeriodTabs();
+  const periodParam = `?period=${state.analyticsPeriod}`;
   const [popularServices, popularProducts, peakDays, revenue] = await Promise.all([
-    safeFetch(`${API_URL}/reports/popular-services`),
-    safeFetch(`${API_URL}/reports/popular-products`),
-    safeFetch(`${API_URL}/reports/peak-days`),
+    safeFetch(`${API_URL}/reports/popular-services${periodParam}`),
+    safeFetch(`${API_URL}/reports/popular-products${periodParam}`),
+    safeFetch(`${API_URL}/reports/peak-days${periodParam}`),
     safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
@@ -914,6 +958,8 @@ async function handleAdminLogin(event) {
     return;
   }
   state.adminLoggedIn = true;
+  state.selectedIncomePeriod = 'Günlük';
+  state.analyticsPeriod = 'daily';
   setScreen('admin');
   dom.admin.feedback.textContent = '';
   await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
@@ -1034,6 +1080,7 @@ function attachEvents() {
     state.adminLoggedIn = false;
     state.incomePeriods = [];
     state.selectedIncomePeriod = 'Günlük';
+    state.analyticsPeriod = 'daily';
     dom.admin.feedback.textContent = '';
     setAnalyticsPlaceholder();
     stopNotificationPolling();
@@ -1075,9 +1122,29 @@ function attachEvents() {
     btn.addEventListener('click', () => togglePricingTab(btn.dataset.pricingTab));
   });
 
+  dom.admin.addServiceForm?.addEventListener('submit', handleAddService);
   dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
 
   dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
+
+  dom.analytics.incomeTabs?.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.selectedIncomePeriod = btn.dataset.incomePeriod || 'Günlük';
+      if (!state.incomePeriods.length) {
+        refreshIncomeData();
+      } else {
+        renderIncomeSummary();
+      }
+    });
+  });
+
+  dom.analytics.analyticsPeriodTabs?.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      state.analyticsPeriod = btn.dataset.analyticsPeriod || 'daily';
+      renderAnalyticsPeriodTabs();
+      if (state.adminLoggedIn) await loadAnalytics();
+    });
+  });
 
   dom.customer.productToggle?.addEventListener('click', toggleProductSelector);
 }
