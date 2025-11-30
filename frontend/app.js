@@ -5,6 +5,10 @@ const FALLBACK_SERVICES = [
   { name: 'Saç', price: 0 },
   { name: 'Sakal', price: 0 },
   { name: 'Saç + Sakal', price: 0 },
+  { name: 'Çocuk Saç Kesimi', price: 0 },
+  { name: 'Cilt Bakımı', price: 0 },
+  { name: 'Renk & Boya Paketi', price: 0 },
+  { name: 'Saç Bakım Seremoni', price: 0 },
 ];
 
 const dom = {
@@ -44,6 +48,9 @@ const dom = {
     pricingProducts: document.getElementById('admin-pricing-products'),
     pricingTabs: document.querySelectorAll('[data-pricing-tab]'),
     addProductForm: document.getElementById('admin-add-product'),
+    addServiceForm: document.getElementById('admin-add-service'),
+    serviceName: document.getElementById('admin-service-name'),
+    servicePrice: document.getElementById('admin-service-price'),
     productName: document.getElementById('admin-product-name'),
     productPrice: document.getElementById('admin-product-price'),
     notificationToggle: document.getElementById('admin-notifications-toggle'),
@@ -60,11 +67,17 @@ const dom = {
     incomeCards: document.getElementById('income-cards'),
     dailyRevenue: document.getElementById('daily-revenue'),
     dailyRevenueButton: document.getElementById('refresh-daily-revenue'),
+    incomeTabs: document.querySelectorAll('[data-income-period]'),
+    incomeService: document.getElementById('income-service'),
+    incomeProduct: document.getElementById('income-product'),
+    incomePeriodLabel: document.getElementById('income-period-label'),
+    analyticsTabs: document.querySelectorAll('[data-analytics-period]'),
   },
   extras: {
     packages: document.getElementById('package-list'),
     featured: document.getElementById('extra-list'),
   },
+  productToggle: document.getElementById('toggle-product-selector'),
 };
 
 const state = {
@@ -82,6 +95,11 @@ const state = {
   customerSchedule: null,
   adminSchedule: null,
   notifications: [],
+  productsExpanded: true,
+  incomePeriods: [],
+  selectedIncomePeriod: 'Günlük',
+  selectedAnalyticsPeriod: 'Günlük',
+  notificationInterval: null,
 };
 
 const FALLBACK_PRODUCTS = [
@@ -89,6 +107,9 @@ const FALLBACK_PRODUCTS = [
   { name: 'Saç Spreyi', price: 180 },
   { name: 'Sakal Yağı', price: 220 },
   { name: 'Şampuan', price: 160 },
+  { name: 'Saç Şekillendirici Toz', price: 210 },
+  { name: 'Tıraş Kolonyası', price: 150 },
+  { name: 'Sakal Balmı', price: 195 },
 ];
 
 dom.customer.date.value = state.customerDate;
@@ -136,8 +157,23 @@ function syncNotificationsFromBookings(bookings = [], date) {
 
 async function refreshNotificationsFromServer() {
   const recent = await safeFetch(`${API_URL}/appointments/recent`);
-  if (!recent) return;
+  if (!recent) {
+    renderNotifications();
+    return;
+  }
   syncNotificationsFromBookings(recent);
+}
+
+function startNotificationPolling() {
+  if (state.notificationInterval) return;
+  state.notificationInterval = setInterval(refreshNotificationsFromServer, 20000);
+}
+
+function stopNotificationPolling() {
+  if (state.notificationInterval) {
+    clearInterval(state.notificationInterval);
+    state.notificationInterval = null;
+  }
 }
 
 function renderNotifications() {
@@ -171,6 +207,9 @@ function setAnalyticsPlaceholder() {
   if (dom.analytics.dailyRevenue) {
     dom.analytics.dailyRevenue.textContent = '-';
   }
+  if (dom.analytics.incomeService) dom.analytics.incomeService.textContent = '-';
+  if (dom.analytics.incomeProduct) dom.analytics.incomeProduct.textContent = '-';
+  if (dom.analytics.incomePeriodLabel) dom.analytics.incomePeriodLabel.textContent = 'Gelir özeti';
 }
 
 async function safeFetch(url, options) {
@@ -304,12 +343,27 @@ function togglePricingTab(target) {
   dom.admin.pricingServices?.classList.toggle('hidden', showProducts);
   dom.admin.pricingProducts?.classList.toggle('hidden', !showProducts);
   dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
+  dom.admin.addServiceForm?.classList.toggle('hidden', showProducts);
+}
+
+function updateProductToggleLabel() {
+  if (!dom.customer.productToggle) return;
+  dom.customer.productToggle.textContent = state.productsExpanded ? 'Ürünleri gizle' : 'Ürünleri göster';
 }
 
 function renderProductSelector() {
   const container = dom.customer.productSelector;
   container.innerHTML = '';
   state.selectedProducts = {};
+
+  updateProductToggleLabel();
+
+  container.classList.toggle('collapsed', !state.productsExpanded);
+
+  if (!state.productsExpanded) {
+    container.innerHTML = '<p class="muted">Ürün listesini açarak satış ekleyebilirsiniz.</p>';
+    return;
+  }
 
   if (!state.products.length) {
     container.innerHTML = '<p class="muted">Henüz ekstra ürün tanımlı değil.</p>';
@@ -319,6 +373,7 @@ function renderProductSelector() {
   state.products.forEach((product) => {
     const card = document.createElement('div');
     card.className = 'product-card';
+    card.setAttribute('tabindex', '0');
     card.innerHTML = `
       <header>
         <div>
@@ -354,6 +409,12 @@ function renderProductSelector() {
   });
 }
 
+function toggleProductSelector() {
+  state.productsExpanded = !state.productsExpanded;
+  updateProductToggleLabel();
+  renderProductSelector();
+}
+
 function buildSlotGrid(target, scheduleData, bookings, role) {
   target.innerHTML = '';
   const closed = scheduleData?.closed;
@@ -370,7 +431,12 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'slot';
-    button.textContent = `${start} - ${end}`;
+    const baseLabel = `${start} - ${end}`;
+    if (role === 'admin') {
+      button.innerHTML = `<span class="slot-time">${baseLabel}</span>`;
+    } else {
+      button.textContent = baseLabel;
+    }
 
     let status = 'booked';
     if (blockedSet.has(start)) status = 'blocked';
@@ -386,11 +452,30 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     if (status === 'booked') {
       const info = bookings?.find((item) => item.start_time === start);
       button.title = info ? `${info.service_name || ''} • ${info.customer_name || ''}` : 'Dolu';
+      if (role === 'admin') {
+        const customerLabel = info?.customer_name ? ` • ${info.customer_name}` : '';
+        const meta = info?.service_name ? `${info.service_name}${customerLabel}` : customerLabel.slice(3);
+        button.innerHTML = `
+          <span class="slot-time">${baseLabel}</span>
+          <span class="slot-meta">
+            <span class="pill locked">Kilitli</span>
+            ${meta ? `<span>${meta}</span>` : ''}
+          </span>
+        `;
+      }
       button.disabled = true;
     }
 
     if (status === 'blocked') {
       button.title = 'Admin tarafından bloke edildi';
+      if (role === 'admin') {
+        button.innerHTML = `
+          <span class="slot-time">${baseLabel}</span>
+          <span class="slot-meta">
+            <span class="pill blocked">Bloke</span>
+          </span>
+        `;
+      }
       if (role === 'customer') button.disabled = true;
     }
 
@@ -463,6 +548,32 @@ async function loadProducts() {
   state.products = products || [];
   renderProductSelector();
   renderAdminProductPricing();
+}
+
+async function handleAddService(event) {
+  event.preventDefault();
+  const name = dom.admin.serviceName.value?.trim();
+  const price = Number(dom.admin.servicePrice.value) || 0;
+
+  if (!name) {
+    dom.admin.feedback.textContent = 'Hizmet adı boş olamaz.';
+    return;
+  }
+
+  dom.admin.feedback.textContent = 'Hizmet ekleniyor...';
+  const result = await safeFetch(`${API_URL}/services`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price }),
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = 'Hizmet eklendi.';
+    dom.admin.addServiceForm?.reset();
+    await loadServices();
+  } else {
+    dom.admin.feedback.textContent = 'Hizmet eklenemedi.';
+  }
 }
 
 async function updateServicePrice(id, price) {
@@ -624,30 +735,152 @@ function renderIncomeCards(periods = []) {
   });
 }
 
-async function loadIncomeCards() {
-  if (!state.adminLoggedIn) {
-    renderIncomeCards([]);
-    return;
-  }
-  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
-  renderIncomeCards(periods || []);
+function normalizePeriodLabel(label) {
+  const map = {
+    Günlük: 'Günlük',
+    Haftalık: 'Haftalık',
+    Aylık: 'Aylık',
+    Yıllık: 'Yıllık',
+    Daily: 'Günlük',
+    Weekly: 'Haftalık',
+    Monthly: 'Aylık',
+    Yearly: 'Yıllık',
+  };
+  return map[label] || label || 'Günlük';
 }
 
-function renderDailyRevenue(value) {
-  if (!dom.analytics.dailyRevenue) return;
-  dom.analytics.dailyRevenue.textContent = formatCurrency(Number(value) || 0);
+function aggregateRevenue(rows = []) {
+  const today = new Date();
+
+  const totals = {
+    Günlük: { service_income: 0, product_income: 0, total_income: 0 },
+    Haftalık: { service_income: 0, product_income: 0, total_income: 0 },
+    Aylık: { service_income: 0, product_income: 0, total_income: 0 },
+    Yıllık: { service_income: 0, product_income: 0, total_income: 0 },
+  };
+
+  rows.forEach((row) => {
+    const date = new Date(row.date || row.day || row.period_date || today);
+    const diffDays = (today - date) / (1000 * 60 * 60 * 24);
+    const sameWeek = diffDays >= 0 && diffDays <= 6;
+    const sameMonth = today.getFullYear() === date.getFullYear() && today.getMonth() === date.getMonth();
+    const sameYear = today.getFullYear() === date.getFullYear();
+
+    const service = Number(row.service_income) || 0;
+    const product = Number(row.product_income) || 0;
+    const total = Number(row.total_income) || service + product;
+
+    if (today.toDateString() === date.toDateString()) {
+      totals.Günlük.service_income += service;
+      totals.Günlük.product_income += product;
+      totals.Günlük.total_income += total;
+    }
+    if (sameWeek) {
+      totals.Haftalık.service_income += service;
+      totals.Haftalık.product_income += product;
+      totals.Haftalık.total_income += total;
+    }
+    if (sameMonth) {
+      totals.Aylık.service_income += service;
+      totals.Aylık.product_income += product;
+      totals.Aylık.total_income += total;
+    }
+    if (sameYear) {
+      totals.Yıllık.service_income += service;
+      totals.Yıllık.product_income += product;
+      totals.Yıllık.total_income += total;
+    }
+  });
+
+  return Object.entries(totals).map(([period, values]) => ({ period, ...values }));
 }
 
-async function refreshDailyRevenue(revenueRows) {
+function normalizeIncomePeriods(periods = [], revenueRows = []) {
+  if (periods?.length) {
+    return periods.map((row) => ({
+      period: normalizePeriodLabel(row.period),
+      service_income: Number(row.service_income) || 0,
+      product_income: Number(row.product_income) || 0,
+      total_income: Number(row.total_income) || 0,
+    }));
+  }
+
+  return aggregateRevenue(revenueRows);
+}
+
+function renderIncomeSummary(periods) {
+  if (Array.isArray(periods)) {
+    state.incomePeriods = periods;
+  }
+
+  const tabs = dom.analytics.incomeTabs || [];
+  tabs.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.incomePeriod === state.selectedIncomePeriod);
+  });
+
+  const labelMap = {
+    Günlük: 'Bugünkü gelir',
+    Haftalık: 'Bu hafta toplam',
+    Aylık: 'Bu ay toplam',
+    Yıllık: 'Bu yıl toplam',
+  };
+
+  const current = state.incomePeriods.find((row) => row.period === state.selectedIncomePeriod) || state.incomePeriods[0] || null;
+  if (dom.analytics.incomePeriodLabel) {
+    dom.analytics.incomePeriodLabel.textContent = labelMap[state.selectedIncomePeriod] || 'Gelir özeti';
+  }
+
+  if (dom.analytics.dailyRevenue) {
+    const value = current?.total_income || 0;
+    dom.analytics.dailyRevenue.textContent = formatCurrency(value);
+  }
+
+  if (dom.analytics.incomeService) {
+    dom.analytics.incomeService.textContent = formatCurrency(current?.service_income || 0);
+  }
+
+  if (dom.analytics.incomeProduct) {
+    dom.analytics.incomeProduct.textContent = formatCurrency(current?.product_income || 0);
+  }
+
+  renderIncomeCards(state.incomePeriods);
+}
+
+function renderRevenueTable(rows = []) {
+  dom.analytics.revenueBody.innerHTML = '';
+  if (!rows.length) {
+    dom.analytics.revenueBody.innerHTML = '<tr><td class="muted" colspan="4">Henüz gelir kaydı yok.</td></tr>';
+    return;
+  }
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.date?.split('T')[0] ?? '-'}</td>
+      <td>${formatCurrency(row.service_income || 0)}</td>
+      <td>${formatCurrency(row.product_income || 0)}</td>
+      <td>${formatCurrency(row.total_income || 0)}</td>
+    `;
+    dom.analytics.revenueBody.appendChild(tr);
+  });
+}
+
+async function refreshIncomeData(revenueRows) {
   if (!state.adminLoggedIn) {
-    renderDailyRevenue(0);
+    renderIncomeSummary([]);
+    renderRevenueTable([]);
     return;
   }
 
-  const rows = revenueRows || (await safeFetch(`${API_URL}/reports/revenue-summary`));
-  const today = new Date().toISOString().split('T')[0];
-  const todayRow = (rows || []).find((row) => row.date?.startsWith(today));
-  renderDailyRevenue(todayRow?.total_income || 0);
+  const [periods, revenue] = await Promise.all([
+    safeFetch(`${API_URL}/reports/revenue-periods`),
+    revenueRows ? Promise.resolve(revenueRows) : safeFetch(`${API_URL}/reports/revenue-summary`),
+  ]);
+
+  const summaryRows = revenue || [];
+  const normalizedPeriods = normalizeIncomePeriods(periods || [], summaryRows);
+
+  renderRevenueTable(summaryRows);
+  renderIncomeSummary(normalizedPeriods);
 }
 
 async function loadAnalytics() {
@@ -655,10 +888,14 @@ async function loadAnalytics() {
     setAnalyticsPlaceholder();
     return;
   }
+  dom.analytics.analyticsTabs?.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.analyticsPeriod === state.selectedAnalyticsPeriod);
+  });
+  const period = encodeURIComponent(state.selectedAnalyticsPeriod);
   const [popularServices, popularProducts, peakDays, revenue] = await Promise.all([
-    safeFetch(`${API_URL}/reports/popular-services`),
-    safeFetch(`${API_URL}/reports/popular-products`),
-    safeFetch(`${API_URL}/reports/peak-days`),
+    safeFetch(`${API_URL}/reports/popular-services?period=${period}`),
+    safeFetch(`${API_URL}/reports/popular-products?period=${period}`),
+    safeFetch(`${API_URL}/reports/peak-days?period=${period}`),
     safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
@@ -673,23 +910,31 @@ async function loadAnalytics() {
 
   buildList(dom.analytics.services, popularServices);
   buildList(dom.analytics.products, popularProducts);
-  buildList(dom.analytics.peakDays, peakDays);
+  const translateDay = (value) => {
+    const map = {
+      Sunday: 'Pazar',
+      Monday: 'Pazartesi',
+      Tuesday: 'Salı',
+      Wednesday: 'Çarşamba',
+      Thursday: 'Perşembe',
+      Friday: 'Cuma',
+      Saturday: 'Cumartesi',
+    };
+    return map[value] || value;
+  };
 
-  dom.analytics.revenueBody.innerHTML = '';
-  (revenue ?? []).forEach((row) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.date?.split('T')[0] ?? '-'}</td>
-      <td>${formatCurrency(row.service_income || 0)}</td>
-      <td>${formatCurrency(row.product_income || 0)}</td>
-      <td>${formatCurrency(row.total_income || 0)}</td>
-    `;
-    dom.analytics.revenueBody.appendChild(tr);
-  });
+  if (dom.analytics.peakDays) {
+    dom.analytics.peakDays.innerHTML = '';
+    (peakDays ?? []).forEach((item) => {
+      const values = Object.values(item).map((val) => translateDay(String(val)));
+      const li = document.createElement('li');
+      li.textContent = values.join(' • ');
+      dom.analytics.peakDays.appendChild(li);
+    });
+  }
 
   renderPopularPills(popularServices || []);
-  await loadIncomeCards();
-  await refreshDailyRevenue(revenue);
+  await refreshIncomeData(revenue);
 }
 
 async function fetchCustomerSchedule() {
@@ -725,7 +970,17 @@ function renderAdminAppointments(list) {
 
   list.forEach((item) => {
     const li = document.createElement('li');
-    li.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+    const phone = item.customer_phone || '-';
+    li.innerHTML = `
+      <div class="appointment-meta">
+        <div class="slot-meta">
+          <strong>${item.start_time}</strong>
+          <span class="pill locked">Kilitli</span>
+        </div>
+        <div>${item.service_name || '-'}</div>
+        <small>${item.customer_name || 'Müşteri'} (${phone})</small>
+      </div>
+    `;
     dom.admin.appointments.appendChild(li);
   });
 }
@@ -799,6 +1054,7 @@ async function handleAdminLogin(event) {
   setScreen('admin');
   dom.admin.feedback.textContent = '';
   await Promise.all([fetchAdminSchedule(), loadClosedDays(), refreshNotificationsFromServer()]);
+  startNotificationPolling();
   await loadAnalytics();
 }
 
@@ -913,8 +1169,11 @@ function attachEvents() {
   });
   dom.admin.exit.addEventListener('click', () => {
     state.adminLoggedIn = false;
+    state.incomePeriods = [];
+    state.selectedIncomePeriod = 'Günlük';
     dom.admin.feedback.textContent = '';
     setAnalyticsPlaceholder();
+    stopNotificationPolling();
     setScreen('landing');
   });
 
@@ -953,9 +1212,27 @@ function attachEvents() {
     btn.addEventListener('click', () => togglePricingTab(btn.dataset.pricingTab));
   });
 
+  dom.admin.addServiceForm?.addEventListener('submit', handleAddService);
   dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
 
-  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
+  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshIncomeData());
+
+  dom.analytics.incomeTabs?.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.selectedIncomePeriod = btn.dataset.incomePeriod;
+      renderIncomeSummary();
+    });
+  });
+
+  dom.analytics.analyticsTabs?.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      state.selectedAnalyticsPeriod = btn.dataset.analyticsPeriod;
+      dom.analytics.analyticsTabs?.forEach((tab) => tab.classList.toggle('active', tab === btn));
+      await loadAnalytics();
+    });
+  });
+
+  dom.customer.productToggle?.addEventListener('click', toggleProductSelector);
 }
 
 async function init() {

@@ -112,7 +112,7 @@ body {
   position: relative;
   z-index: 1;
   padding: clamp(1rem, 2vw, 2.5rem);
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
@@ -295,6 +295,7 @@ textarea:focus {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #ecfdf3;
   box-shadow: 0 10px 26px rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(34, 197, 94, 0.6);
 }
 
 .btn.dark {
@@ -387,7 +388,8 @@ textarea:focus {
 }
 
 .admin-layout {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(520px, 1.35fr) minmax(420px, 1fr);
+  align-items: start;
 }
 
 .schedule-panel {
@@ -491,13 +493,15 @@ textarea:focus {
   padding: 0.75rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  text-align: center;
+  text-align: left;
   background: rgba(15, 23, 42, 0.55);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
   animation: pulseIn 0.35s ease both;
   color: #e2e8f0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 22px rgba(0, 0, 0, 0.18);
+  display: grid;
+  gap: 0.25rem;
 }
 
 .slot:hover {
@@ -557,6 +561,25 @@ textarea:focus {
   gap: 0.75rem;
 }
 
+.product-selector.collapsed {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 0.9rem;
+  padding: 0.75rem;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.product-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .product-card {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 1rem;
@@ -565,6 +588,14 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+}
+
+.product-card:hover,
+.product-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45);
 }
 
 .product-card header {
@@ -588,6 +619,37 @@ textarea:focus {
   color: var(--primary);
 }
 
+.slot-time {
+  font-weight: 700;
+}
+
+.slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pill {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.pill.locked {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.pill.blocked {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
 .muted {
   color: var(--muted);
   font-size: 0.9rem;
@@ -601,8 +663,9 @@ textarea:focus {
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1rem;
+  align-items: start;
 }
 
 .package-list,
@@ -618,6 +681,14 @@ textarea:focus {
   padding: 0.85rem;
   border-radius: 1rem;
   background: rgba(2, 6, 23, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+}
+
+.package-card:hover,
+.extra-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
 }
 
 .package-card ul,
@@ -677,6 +748,64 @@ textarea:focus {
   gap: 0.75rem;
 }
 
+.panel.wide {
+  width: 100%;
+}
+
+.income-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.income-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.35rem;
+}
+
+.income-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.85rem;
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6));
+}
+
+.income-highlight strong {
+  font-size: 1.6rem;
+}
+
+.income-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.income-card {
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.85rem;
+  background: rgba(2, 6, 23, 0.45);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.income-card strong {
+  font-size: 1.1rem;
+}
+
+.breakdown {
+  margin-top: 0.25rem;
+}
+
 .analytics article {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 0.9rem;
@@ -692,10 +821,27 @@ textarea:focus {
   margin-bottom: 0.5rem;
 }
 
+.analytics-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.analytics-tabs .btn {
+  justify-content: center;
+}
+
 .pricing-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+#admin-appointments.scroll-area {
+  max-height: 260px;
 }
 
 .pricing-tabs {
@@ -719,19 +865,26 @@ textarea:focus {
 
 .pricing-row {
   display: grid;
-  grid-template-columns: 1fr minmax(140px, 160px) auto;
+  grid-template-columns: 1fr minmax(160px, 200px) minmax(120px, 1fr);
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 0.85rem;
   background: rgba(2, 6, 23, 0.5);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
 }
 
 .pricing-row .btn {
   justify-self: flex-end;
   width: 100%;
-  max-width: 120px;
+  max-width: 170px;
+}
+
+.pricing-row:hover {
+  transform: translateY(-2px);
+  border-color: rgba(249, 115, 22, 0.35);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
 }
 
 .add-product {
@@ -767,12 +920,29 @@ textarea:focus {
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+.appointment-meta {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.appointment-meta strong {
+  font-size: 1rem;
+}
+
+.appointment-meta small {
+  color: var(--muted);
+}
+
 .hidden {
   display: none !important;
 }
 
 @media (max-width: 960px) {
   .customer-layout,
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
   .admin-layout {
     grid-template-columns: 1fr;
   }
@@ -789,7 +959,13 @@ textarea:focus {
   }
 
   .pricing-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .pricing-row .btn {
+    grid-column: span 2;
+    justify-self: stretch;
   }
 
   .slot-grid {
