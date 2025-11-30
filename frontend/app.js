@@ -92,9 +92,6 @@ const state = {
   adminSchedule: null,
   notifications: [],
   productsExpanded: true,
-  incomePeriods: [],
-  selectedIncomePeriod: 'Günlük',
-  notificationInterval: null,
 };
 
 const FALLBACK_PRODUCTS = [
@@ -1080,14 +1077,7 @@ function attachEvents() {
 
   dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
 
-  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshIncomeData());
-
-  dom.analytics.incomeTabs?.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.selectedIncomePeriod = btn.dataset.incomePeriod;
-      renderIncomeSummary();
-    });
-  });
+  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
 
   dom.customer.productToggle?.addEventListener('click', toggleProductSelector);
 }

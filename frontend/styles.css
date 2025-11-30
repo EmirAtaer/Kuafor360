@@ -853,7 +853,7 @@ textarea:focus {
 
 .pricing-row {
   display: grid;
-  grid-template-columns: 1fr minmax(160px, 200px) minmax(120px, 1fr);
+  grid-template-columns: 1.1fr minmax(140px, 170px) minmax(120px, 1fr);
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem;
@@ -866,7 +866,7 @@ textarea:focus {
 .pricing-row .btn {
   justify-self: flex-end;
   width: 100%;
-  max-width: 170px;
+  max-width: 140px;
 }
 
 .pricing-row:hover {
