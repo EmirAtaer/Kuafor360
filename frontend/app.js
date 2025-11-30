@@ -71,7 +71,6 @@ const dom = {
     incomeService: document.getElementById('income-service'),
     incomeProduct: document.getElementById('income-product'),
     incomePeriodLabel: document.getElementById('income-period-label'),
-    analyticsTabs: document.querySelectorAll('[data-analytics-period]'),
   },
   extras: {
     packages: document.getElementById('package-list'),
@@ -96,10 +95,6 @@ const state = {
   adminSchedule: null,
   notifications: [],
   productsExpanded: true,
-  incomePeriods: [],
-  selectedIncomePeriod: 'Günlük',
-  selectedAnalyticsPeriod: 'Günlük',
-  notificationInterval: null,
 };
 
 const FALLBACK_PRODUCTS = [
@@ -344,6 +339,11 @@ function togglePricingTab(target) {
   dom.admin.pricingProducts?.classList.toggle('hidden', !showProducts);
   dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
   dom.admin.addServiceForm?.classList.toggle('hidden', showProducts);
+}
+
+function updateProductToggleLabel() {
+  if (!dom.customer.productToggle) return;
+  dom.customer.productToggle.textContent = state.productsExpanded ? 'Ürünleri gizle' : 'Ürünleri göster';
 }
 
 function updateProductToggleLabel() {
@@ -735,79 +735,6 @@ function renderIncomeCards(periods = []) {
   });
 }
 
-function normalizePeriodLabel(label) {
-  const map = {
-    Günlük: 'Günlük',
-    Haftalık: 'Haftalık',
-    Aylık: 'Aylık',
-    Yıllık: 'Yıllık',
-    Daily: 'Günlük',
-    Weekly: 'Haftalık',
-    Monthly: 'Aylık',
-    Yearly: 'Yıllık',
-  };
-  return map[label] || label || 'Günlük';
-}
-
-function aggregateRevenue(rows = []) {
-  const today = new Date();
-
-  const totals = {
-    Günlük: { service_income: 0, product_income: 0, total_income: 0 },
-    Haftalık: { service_income: 0, product_income: 0, total_income: 0 },
-    Aylık: { service_income: 0, product_income: 0, total_income: 0 },
-    Yıllık: { service_income: 0, product_income: 0, total_income: 0 },
-  };
-
-  rows.forEach((row) => {
-    const date = new Date(row.date || row.day || row.period_date || today);
-    const diffDays = (today - date) / (1000 * 60 * 60 * 24);
-    const sameWeek = diffDays >= 0 && diffDays <= 6;
-    const sameMonth = today.getFullYear() === date.getFullYear() && today.getMonth() === date.getMonth();
-    const sameYear = today.getFullYear() === date.getFullYear();
-
-    const service = Number(row.service_income) || 0;
-    const product = Number(row.product_income) || 0;
-    const total = Number(row.total_income) || service + product;
-
-    if (today.toDateString() === date.toDateString()) {
-      totals.Günlük.service_income += service;
-      totals.Günlük.product_income += product;
-      totals.Günlük.total_income += total;
-    }
-    if (sameWeek) {
-      totals.Haftalık.service_income += service;
-      totals.Haftalık.product_income += product;
-      totals.Haftalık.total_income += total;
-    }
-    if (sameMonth) {
-      totals.Aylık.service_income += service;
-      totals.Aylık.product_income += product;
-      totals.Aylık.total_income += total;
-    }
-    if (sameYear) {
-      totals.Yıllık.service_income += service;
-      totals.Yıllık.product_income += product;
-      totals.Yıllık.total_income += total;
-    }
-  });
-
-  return Object.entries(totals).map(([period, values]) => ({ period, ...values }));
-}
-
-function normalizeIncomePeriods(periods = [], revenueRows = []) {
-  if (periods?.length) {
-    return periods.map((row) => ({
-      period: normalizePeriodLabel(row.period),
-      service_income: Number(row.service_income) || 0,
-      product_income: Number(row.product_income) || 0,
-      total_income: Number(row.total_income) || 0,
-    }));
-  }
-
-  return aggregateRevenue(revenueRows);
-}
-
 function renderIncomeSummary(periods) {
   if (Array.isArray(periods)) {
     state.incomePeriods = periods;
@@ -822,7 +749,6 @@ function renderIncomeSummary(periods) {
     Günlük: 'Bugünkü gelir',
     Haftalık: 'Bu hafta toplam',
     Aylık: 'Bu ay toplam',
-    Yıllık: 'Bu yıl toplam',
   };
 
   const current = state.incomePeriods.find((row) => row.period === state.selectedIncomePeriod) || state.incomePeriods[0] || null;
@@ -876,11 +802,8 @@ async function refreshIncomeData(revenueRows) {
     revenueRows ? Promise.resolve(revenueRows) : safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
-  const summaryRows = revenue || [];
-  const normalizedPeriods = normalizeIncomePeriods(periods || [], summaryRows);
-
-  renderRevenueTable(summaryRows);
-  renderIncomeSummary(normalizedPeriods);
+  renderRevenueTable(revenue || []);
+  renderIncomeSummary(periods || []);
 }
 
 async function loadAnalytics() {
@@ -922,16 +845,6 @@ async function loadAnalytics() {
     };
     return map[value] || value;
   };
-
-  if (dom.analytics.peakDays) {
-    dom.analytics.peakDays.innerHTML = '';
-    (peakDays ?? []).forEach((item) => {
-      const values = Object.values(item).map((val) => translateDay(String(val)));
-      const li = document.createElement('li');
-      li.textContent = values.join(' • ');
-      dom.analytics.peakDays.appendChild(li);
-    });
-  }
 
   renderPopularPills(popularServices || []);
   await refreshIncomeData(revenue);
@@ -1215,22 +1128,7 @@ function attachEvents() {
   dom.admin.addServiceForm?.addEventListener('submit', handleAddService);
   dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
 
-  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshIncomeData());
-
-  dom.analytics.incomeTabs?.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.selectedIncomePeriod = btn.dataset.incomePeriod;
-      renderIncomeSummary();
-    });
-  });
-
-  dom.analytics.analyticsTabs?.forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      state.selectedAnalyticsPeriod = btn.dataset.analyticsPeriod;
-      dom.analytics.analyticsTabs?.forEach((tab) => tab.classList.toggle('active', tab === btn));
-      await loadAnalytics();
-    });
-  });
+  dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
 
   dom.customer.productToggle?.addEventListener('click', toggleProductSelector);
 }

@@ -224,13 +224,12 @@
               <div class="income-header">
                 <div>
                   <h3>Gelir Özeti</h3>
-                  <p class="muted">Günlük, haftalık, aylık ve yıllık kazançları tek bakışta görün.</p>
+                  <p class="muted">Günlük, haftalık ve aylık kazançları tek bakışta görün.</p>
                 </div>
                 <div class="income-tabs" id="income-period-tabs">
                   <button class="btn tab active" data-income-period="Günlük">Günlük</button>
                   <button class="btn tab" data-income-period="Haftalık">Haftalık</button>
                   <button class="btn tab" data-income-period="Aylık">Aylık</button>
-                  <button class="btn tab" data-income-period="Yıllık">Yıllık</button>
                 </div>
               </div>
               <div class="income-highlight">
@@ -285,6 +284,27 @@
                   <ul id="peak-days"></ul>
                 </article>
               </div>
+            </article>
+            <article class="panel small">
+              <h3>Gelir Özeti (sadece yönetici)</h3>
+              <div class="income-actions">
+                <div>
+                  <p class="muted">Bugünkü gelir</p>
+                  <strong id="daily-revenue">-</strong>
+                </div>
+                <button class="btn primary small" id="refresh-daily-revenue" type="button">Günlük ücreti göster</button>
+              </div>
+              <table id="revenue-table">
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hizmet</th>
+                    <th>Ürün</th>
+                    <th>Toplam</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </article>
           </aside>
         </div>
