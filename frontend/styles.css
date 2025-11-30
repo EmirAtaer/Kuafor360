@@ -462,7 +462,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.85rem;
-  max-height: 380px;
+  max-height: 420px;
   overflow-y: auto;
   padding-right: 0.25rem;
   scrollbar-width: thin;
@@ -510,8 +510,10 @@ textarea:focus {
 }
 
 .slot--selected {
-  background: rgba(245, 158, 66, 0.25);
+  background: rgba(245, 158, 66, 0.3);
   border-color: rgba(245, 158, 66, 0.95);
+  box-shadow: 0 10px 24px rgba(245, 158, 66, 0.35);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .slot--booked {
@@ -525,6 +527,12 @@ textarea:focus {
   border-style: dashed;
 }
 
+.slot--actionable {
+  border-style: solid;
+  cursor: pointer;
+  background: rgba(59, 130, 246, 0.18);
+}
+
 .slot--closed {
   opacity: 0.55;
   cursor: not-allowed;
@@ -536,6 +544,18 @@ textarea:focus {
   border-radius: 0.9rem;
   border: 1px dashed rgba(148, 163, 184, 0.4);
   color: var(--muted);
+  background: rgba(245, 158, 66, 0.08);
+}
+
+.appointment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.appointment-info {
+  flex: 1;
 }
 
 .booking-details {
@@ -601,7 +621,7 @@ textarea:focus {
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1rem;
 }
 
@@ -722,6 +742,26 @@ textarea:focus {
   grid-template-columns: 1fr minmax(140px, 160px) auto;
   align-items: center;
   gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn.tab {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+.btn.tab.active {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(59, 130, 246, 0.25));
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.pricing-row {
+  display: grid;
+  grid-template-columns: 1.2fr minmax(140px, 170px) auto;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: 0.6rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 0.85rem;
@@ -765,6 +805,65 @@ textarea:focus {
 #revenue-table td {
   padding: 0.35rem 0.5rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.income-panel {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.85));
+}
+
+.income-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.income-card {
+  padding: 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.income-card strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 1.05rem;
+}
+
+.income-card p {
+  margin: 0.1rem 0;
+}
+
+.daily-highlight {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.daily-highlight strong {
+  color: #f59e0b;
+}
+
+.period-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.breakdown-row {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hidden {

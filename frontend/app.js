@@ -82,6 +82,8 @@ const state = {
   customerSchedule: null,
   adminSchedule: null,
   notifications: [],
+  revenueDate: new Date().toISOString().split('T')[0],
+  revenueMonth: new Date().getMonth() + 1,
 };
 
 const FALLBACK_PRODUCTS = [
@@ -93,12 +95,47 @@ const FALLBACK_PRODUCTS = [
 
 dom.customer.date.value = state.customerDate;
 dom.admin.date.value = state.adminDate;
+dom.analytics.revenueDate && (dom.analytics.revenueDate.value = state.revenueDate);
 
 setAnalyticsPlaceholder();
+initRevenueFilters();
 loadStoredNotifications();
 renderNotifications();
 
 const formatCurrency = (value) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
+
+function initRevenueFilters() {
+  if (!dom.analytics.revenueMonth) return;
+
+  const months = [
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık',
+  ];
+
+  dom.analytics.revenueMonth.innerHTML = months
+    .map((name, index) => {
+      const monthValue = index + 1;
+      const selected = monthValue === state.revenueMonth ? 'selected' : '';
+      return `<option value="${monthValue}" ${selected}>${name}</option>`;
+    })
+    .join('');
+
+  dom.analytics.revenueMonth.value = state.revenueMonth;
+
+  if (dom.analytics.revenueDate && !dom.analytics.revenueDate.value) {
+    dom.analytics.revenueDate.value = state.revenueDate;
+  }
+}
 
 function loadStoredNotifications() {
   try {
@@ -386,7 +423,12 @@ function buildSlotGrid(target, scheduleData, bookings, role) {
     if (status === 'booked') {
       const info = bookings?.find((item) => item.start_time === start);
       button.title = info ? `${info.service_name || ''} • ${info.customer_name || ''}` : 'Dolu';
-      button.disabled = true;
+      if (role !== 'admin') {
+        button.disabled = true;
+      } else {
+        button.classList.add('slot--actionable');
+        button.addEventListener('click', () => cancelAppointment(info?.id, start, scheduleData?.date));
+      }
     }
 
     if (status === 'blocked') {
@@ -605,9 +647,13 @@ async function loadStats() {
 function renderIncomeCards(periods = []) {
   if (!dom.analytics.incomeCards) return;
   dom.analytics.incomeCards.innerHTML = '';
+  dom.analytics.periodBreakdown && (dom.analytics.periodBreakdown.innerHTML = '');
 
   if (!periods.length) {
     dom.analytics.incomeCards.innerHTML = '<p class="muted">Gelir kartı bulunamadı.</p>';
+    if (dom.analytics.periodBreakdown) {
+      dom.analytics.periodBreakdown.innerHTML = '<p class="muted">Gelir detayları için tarih ve ay seçin.</p>';
+    }
     return;
   }
 
@@ -621,6 +667,16 @@ function renderIncomeCards(periods = []) {
       <p><span class="muted">Toplam:</span> ${formatCurrency(row.total_income)}</p>
     `;
     dom.analytics.incomeCards.appendChild(card);
+
+    if (dom.analytics.periodBreakdown) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'breakdown-row';
+      rowEl.innerHTML = `
+        <span>${row.period}</span>
+        <strong>${formatCurrency(row.total_income)}</strong>
+      `;
+      dom.analytics.periodBreakdown.appendChild(rowEl);
+    }
   });
 }
 
@@ -629,8 +685,41 @@ async function loadIncomeCards() {
     renderIncomeCards([]);
     return;
   }
-  const periods = await safeFetch(`${API_URL}/reports/revenue-periods`);
+  const params = new URLSearchParams({
+    date: state.revenueDate,
+    month: state.revenueMonth,
+  });
+
+  const periods = await safeFetch(`${API_URL}/reports/revenue-periods?${params.toString()}`);
   renderIncomeCards(periods || []);
+  await refreshDailyRevenue(periods);
+}
+
+function renderDailyRevenue(value) {
+  if (!dom.analytics.dailyRevenue) return;
+  dom.analytics.dailyRevenue.textContent = formatCurrency(Number(value) || 0);
+  if (dom.analytics.dailyRevenueDate) {
+    dom.analytics.dailyRevenueDate.textContent = state.revenueDate;
+  }
+}
+
+async function refreshDailyRevenue(revenueRows) {
+  if (!state.adminLoggedIn) {
+    renderDailyRevenue(0);
+    return;
+  }
+
+  let rows = revenueRows;
+  if (!rows) {
+    const params = new URLSearchParams({
+      date: state.revenueDate,
+      month: state.revenueMonth,
+    });
+    rows = await safeFetch(`${API_URL}/reports/revenue-periods?${params.toString()}`);
+  }
+
+  const dailyRow = (rows || []).find((row) => row.period?.startsWith('Günlük'));
+  renderDailyRevenue(dailyRow?.total_income || 0);
 }
 
 function renderDailyRevenue(value) {
@@ -725,7 +814,19 @@ function renderAdminAppointments(list) {
 
   list.forEach((item) => {
     const li = document.createElement('li');
-    li.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+    li.className = 'appointment-row';
+
+    const info = document.createElement('div');
+    info.className = 'appointment-info';
+    info.textContent = `${item.start_time} • ${item.service_name} • ${item.customer_name || 'Müşteri'} (${item.customer_phone || '-'})`;
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn ghost small';
+    cancelBtn.textContent = 'İptal';
+    cancelBtn.addEventListener('click', () => cancelAppointment(item.id, item.start_time, item.date));
+
+    li.append(info, cancelBtn);
     dom.admin.appointments.appendChild(li);
   });
 }
@@ -763,6 +864,28 @@ async function handleAdminSlotClick(startTime, status) {
     if (state.customerDate === state.adminDate) {
       await fetchCustomerSchedule();
     }
+  }
+}
+
+async function cancelAppointment(id, startTime, date) {
+  if (!state.adminLoggedIn || !id) return;
+  const label = `${date || state.adminDate} ${startTime || ''}`.trim();
+  const ok = confirm(`${label} randevusunu iptal etmek istediğinize emin misiniz?`);
+  if (!ok) return;
+
+  dom.admin.feedback.textContent = 'Randevu iptal ediliyor...';
+  const result = await safeFetch(`${API_URL}/appointments/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (result) {
+    dom.admin.feedback.textContent = result.message || 'Randevu iptal edildi.';
+    await Promise.all([fetchAdminSchedule(), loadAnalytics()]);
+    if (state.customerDate === state.adminDate) {
+      await fetchCustomerSchedule();
+    }
+  } else {
+    dom.admin.feedback.textContent = 'Randevu iptal edilirken hata oluştu.';
   }
 }
 
@@ -926,6 +1049,18 @@ function attachEvents() {
   dom.admin.date.addEventListener('change', async (event) => {
     state.adminDate = event.target.value;
     await fetchAdminSchedule();
+    if (dom.analytics.revenueDate) {
+      state.revenueDate = state.adminDate;
+      dom.analytics.revenueDate.value = state.revenueDate;
+      const selected = new Date(state.revenueDate);
+      if (!Number.isNaN(selected.getTime()) && dom.analytics.revenueMonth) {
+        state.revenueMonth = selected.getMonth() + 1;
+        dom.analytics.revenueMonth.value = state.revenueMonth;
+      }
+      if (state.adminLoggedIn) {
+        await loadIncomeCards();
+      }
+    }
   });
 
   dom.customer.bookingForm.addEventListener('submit', handleBookingSubmit);
