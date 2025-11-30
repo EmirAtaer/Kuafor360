@@ -12,7 +12,10 @@ const ensureCustomerTable = () => {
       full_name VARCHAR(255) NOT NULL,
       phone VARCHAR(20) NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    (err) => {
+      if (err) console.error('Müşteri tablosu oluşturulamadı:', err.message);
+    }
   );
 };
 

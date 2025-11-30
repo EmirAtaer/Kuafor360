@@ -565,6 +565,17 @@ textarea:focus {
   margin-top: 1rem;
 }
 
+.service-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.service-toolbar .btn {
+  height: 100%;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -575,6 +586,10 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
+}
+
+.product-selector.collapsed {
+  display: none;
 }
 
 .product-card {
