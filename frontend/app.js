@@ -5,6 +5,10 @@ const FALLBACK_SERVICES = [
   { name: 'Saç', price: 0 },
   { name: 'Sakal', price: 0 },
   { name: 'Saç + Sakal', price: 0 },
+  { name: 'Çocuk Saç Kesimi', price: 0 },
+  { name: 'Cilt Bakımı', price: 0 },
+  { name: 'Renk & Boya Paketi', price: 0 },
+  { name: 'Saç Bakım Seremoni', price: 0 },
 ];
 
 const dom = {
@@ -65,6 +69,7 @@ const dom = {
     packages: document.getElementById('package-list'),
     featured: document.getElementById('extra-list'),
   },
+  productToggle: document.getElementById('toggle-product-selector'),
 };
 
 const state = {
@@ -82,6 +87,7 @@ const state = {
   customerSchedule: null,
   adminSchedule: null,
   notifications: [],
+  productsExpanded: true,
 };
 
 const FALLBACK_PRODUCTS = [
@@ -89,6 +95,9 @@ const FALLBACK_PRODUCTS = [
   { name: 'Saç Spreyi', price: 180 },
   { name: 'Sakal Yağı', price: 220 },
   { name: 'Şampuan', price: 160 },
+  { name: 'Saç Şekillendirici Toz', price: 210 },
+  { name: 'Tıraş Kolonyası', price: 150 },
+  { name: 'Sakal Balmı', price: 195 },
 ];
 
 dom.customer.date.value = state.customerDate;
@@ -136,7 +145,10 @@ function syncNotificationsFromBookings(bookings = [], date) {
 
 async function refreshNotificationsFromServer() {
   const recent = await safeFetch(`${API_URL}/appointments/recent`);
-  if (!recent) return;
+  if (!recent) {
+    renderNotifications();
+    return;
+  }
   syncNotificationsFromBookings(recent);
 }
 
@@ -306,10 +318,24 @@ function togglePricingTab(target) {
   dom.admin.addProductForm?.classList.toggle('hidden', !showProducts);
 }
 
+function updateProductToggleLabel() {
+  if (!dom.customer.productToggle) return;
+  dom.customer.productToggle.textContent = state.productsExpanded ? 'Ürünleri gizle' : 'Ürünleri göster';
+}
+
 function renderProductSelector() {
   const container = dom.customer.productSelector;
   container.innerHTML = '';
   state.selectedProducts = {};
+
+  updateProductToggleLabel();
+
+  container.classList.toggle('collapsed', !state.productsExpanded);
+
+  if (!state.productsExpanded) {
+    container.innerHTML = '<p class="muted">Ürün listesini açarak satış ekleyebilirsiniz.</p>';
+    return;
+  }
 
   if (!state.products.length) {
     container.innerHTML = '<p class="muted">Henüz ekstra ürün tanımlı değil.</p>';
@@ -319,6 +345,7 @@ function renderProductSelector() {
   state.products.forEach((product) => {
     const card = document.createElement('div');
     card.className = 'product-card';
+    card.setAttribute('tabindex', '0');
     card.innerHTML = `
       <header>
         <div>
@@ -352,6 +379,12 @@ function renderProductSelector() {
 
     container.appendChild(card);
   });
+}
+
+function toggleProductSelector() {
+  state.productsExpanded = !state.productsExpanded;
+  updateProductToggleLabel();
+  renderProductSelector();
 }
 
 function buildSlotGrid(target, scheduleData, bookings, role) {
@@ -956,6 +989,8 @@ function attachEvents() {
   dom.admin.addProductForm?.addEventListener('submit', handleAddProduct);
 
   dom.analytics.dailyRevenueButton?.addEventListener('click', () => refreshDailyRevenue());
+
+  dom.customer.productToggle?.addEventListener('click', toggleProductSelector);
 }
 
 async function init() {
