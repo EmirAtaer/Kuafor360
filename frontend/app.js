@@ -329,6 +329,8 @@ function renderAdminProductPricing() {
   }
 
   state.products.forEach((product) => {
+    const productId = product.id || `fallback-${product.name?.toLowerCase().replace(/\s+/g, '-') || ''}`;
+    const disabledAttr = product.id ? '' : 'disabled';
     const row = document.createElement('div');
     row.className = 'pricing-row';
     row.innerHTML = `
@@ -336,10 +338,10 @@ function renderAdminProductPricing() {
         <strong>${product.name}</strong>
         <p class="muted">Müşteri ürün seçiminde görünecek.</p>
       </div>
-      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
+      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${productId}" aria-label="${product.name} fiyatı" ${disabledAttr} />
       <div class="pricing-actions">
-        <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
-        <button class="btn ghost small" data-delete-product="${product.id}">Sil</button>
+        <button class="btn save small" data-save-product="${productId}" ${disabledAttr}>Kaydet</button>
+        <button class="btn ghost small" data-delete-product="${productId}" ${disabledAttr}>Sil</button>
       </div>
     `;
 
@@ -400,6 +402,7 @@ function renderProductSelector() {
   }
 
   state.products.forEach((product) => {
+    const productId = product.id || `fallback-${product.name?.toLowerCase().replace(/\s+/g, '-') || ''}`;
     const card = document.createElement('div');
     card.className = 'product-card';
     card.setAttribute('tabindex', '0');
@@ -409,10 +412,10 @@ function renderProductSelector() {
           <strong>${product.name}</strong>
           <p class="price">${formatCurrency(product.price)}</p>
         </div>
-        <input type="checkbox" data-product="${product.id}" aria-label="${product.name} ekle" />
+        <input type="checkbox" data-product="${productId}" aria-label="${product.name} ekle" />
       </header>
       <label>Adet
-        <input type="number" min="1" value="1" data-qty="${product.id}" disabled />
+        <input type="number" min="1" value="1" data-qty="${productId}" disabled />
       </label>
     `;
 
@@ -422,15 +425,15 @@ function renderProductSelector() {
     checkbox.addEventListener('change', () => {
       qtyInput.disabled = !checkbox.checked;
       if (checkbox.checked) {
-        state.selectedProducts[product.id] = Number(qtyInput.value) || 1;
+        state.selectedProducts[productId] = Number(qtyInput.value) || 1;
       } else {
-        delete state.selectedProducts[product.id];
+        delete state.selectedProducts[productId];
       }
     });
 
     qtyInput.addEventListener('input', () => {
       if (checkbox.checked) {
-        state.selectedProducts[product.id] = Math.max(1, Number(qtyInput.value) || 1);
+        state.selectedProducts[productId] = Math.max(1, Number(qtyInput.value) || 1);
       }
     });
 
@@ -561,7 +564,7 @@ async function loadServices() {
 async function loadProducts() {
   let products = await safeFetch(`${API_URL}/products`);
 
-  if (!products?.length) {
+  if (Array.isArray(products) && !products.length) {
     await Promise.all(
       FALLBACK_PRODUCTS.map((product) =>
         safeFetch(`${API_URL}/products`, {
@@ -572,6 +575,13 @@ async function loadProducts() {
       )
     );
     products = await safeFetch(`${API_URL}/products`);
+  }
+
+  if (!products) {
+    products = FALLBACK_PRODUCTS.map((product, index) => ({
+      ...product,
+      id: `fallback-${index}-${product.name.toLowerCase().replace(/\s+/g, '-')}`,
+    }));
   }
 
   state.products = products || [];
@@ -596,6 +606,10 @@ async function updateServicePrice(id, price) {
 }
 
 async function updateProductPrice(id, price) {
+  if (!id) {
+    dom.admin.feedback.textContent = 'Örnek ürünlerin fiyatı güncellenemez.';
+    return;
+  }
   dom.admin.feedback.textContent = 'Ürün fiyatı güncelleniyor...';
   const result = await safeFetch(`${API_URL}/products/${id}`, {
     method: 'PUT',
@@ -624,6 +638,10 @@ async function deleteService(id) {
 }
 
 async function deleteProduct(id) {
+  if (!id) {
+    dom.admin.feedback.textContent = 'Örnek ürünler silinemez.';
+    return;
+  }
   dom.admin.feedback.textContent = 'Ürün siliniyor...';
   const result = await safeFetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
   if (result) {
