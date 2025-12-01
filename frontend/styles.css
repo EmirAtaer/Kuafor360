@@ -392,6 +392,17 @@ textarea:focus {
   align-items: start;
 }
 
+.admin-sidebar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  align-content: start;
+}
+
+.admin-sidebar .wide {
+  grid-column: span 2;
+}
+
 .schedule-panel {
   position: relative;
   overflow: hidden;
@@ -661,12 +672,6 @@ textarea:focus {
   gap: 1rem;
 }
 
-.admin-sidebar {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
 .package-list,
 .extra-list {
   display: flex;
@@ -853,7 +858,7 @@ textarea:focus {
 
 .pricing-row {
   display: grid;
-  grid-template-columns: 1.1fr minmax(140px, 170px) minmax(120px, 1fr);
+  grid-template-columns: 1.1fr minmax(140px, 170px) minmax(180px, 1fr);
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem;
@@ -867,6 +872,12 @@ textarea:focus {
   justify-self: flex-end;
   width: 100%;
   max-width: 140px;
+}
+
+.pricing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .pricing-row:hover {
@@ -885,6 +896,15 @@ textarea:focus {
   background: rgba(2, 6, 23, 0.35);
 }
 
+.add-product.inline-form {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+}
+
+.add-product.inline-form .btn {
+  height: 100%;
+}
+
 .pricing-row input[type='number'] {
   width: 100%;
 }
@@ -893,6 +913,20 @@ textarea:focus {
   list-style: none;
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.analytics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.analytics-tabs {
+  display: inline-flex;
+  gap: 0.4rem;
 }
 
 #revenue-table {
