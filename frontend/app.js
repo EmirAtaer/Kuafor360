@@ -339,9 +339,9 @@ function renderAdminProductPricing() {
     return;
   }
 
-  state.products.forEach((product, index) => {
-    const productId = getProductKey(product, index);
-    const disabledAttr = '';
+  state.products.forEach((product) => {
+    const productId = product.id || `fallback-${product.name?.toLowerCase().replace(/\s+/g, '-') || ''}`;
+    const disabledAttr = product.id ? '' : 'disabled';
     const row = document.createElement('div');
     row.className = 'pricing-row';
     row.innerHTML = `
@@ -412,8 +412,8 @@ function renderProductSelector() {
     return;
   }
 
-  state.products.forEach((product, index) => {
-    const productId = getProductKey(product, index);
+  state.products.forEach((product) => {
+    const productId = product.id || `fallback-${product.name?.toLowerCase().replace(/\s+/g, '-') || ''}`;
     const card = document.createElement('div');
     card.className = 'product-card';
     card.setAttribute('tabindex', '0');
@@ -618,19 +618,8 @@ async function updateServicePrice(id, price) {
 
 async function updateProductPrice(id, price) {
   if (!id) {
-    dom.admin.feedback.textContent = 'Ürün kimliği bulunamadı.';
+    dom.admin.feedback.textContent = 'Örnek ürünlerin fiyatı güncellenemez.';
     return;
-  }
-
-  if (isLocalProductId(id)) {
-    const targetIndex = state.products.findIndex((product, index) => getProductKey(product, index) === id);
-    if (targetIndex !== -1) {
-      state.products[targetIndex].price = price;
-      dom.admin.feedback.textContent = 'Ürün fiyatı yerel olarak güncellendi.';
-      renderProductSelector();
-      renderAdminProductPricing();
-      return;
-    }
   }
   dom.admin.feedback.textContent = 'Ürün fiyatı güncelleniyor...';
   const result = await safeFetch(`${API_URL}/products/${id}`, {
@@ -661,15 +650,7 @@ async function deleteService(id) {
 
 async function deleteProduct(id) {
   if (!id) {
-    dom.admin.feedback.textContent = 'Ürün kimliği bulunamadı.';
-    return;
-  }
-
-  if (isLocalProductId(id)) {
-    state.products = state.products.filter((product, index) => getProductKey(product, index) !== id);
-    dom.admin.feedback.textContent = 'Ürün yerel listeden silindi.';
-    renderProductSelector();
-    renderAdminProductPricing();
+    dom.admin.feedback.textContent = 'Örnek ürünler silinemez.';
     return;
   }
   dom.admin.feedback.textContent = 'Ürün siliniyor...';
