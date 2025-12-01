@@ -115,15 +115,19 @@ router.get('/peak-times', (_req, res) => {
 });
 
 // HİZMET + ÜRÜN GELİR ÖZETİ
-router.get('/revenue-summary', (_req, res) => {
+router.get('/revenue-summary', (req, res) => {
+  const condition = getDateCondition(req.query.period);
+  const where = condition ? `WHERE ${condition}` : '';
+
   const query = `
     WITH dates AS (
-      SELECT DATE(date) AS date FROM appointments GROUP BY DATE(date)
+      SELECT DATE(a.date) AS date FROM appointments a ${where} GROUP BY DATE(a.date)
     ),
     service_income AS (
       SELECT DATE(a.date) AS date, SUM(s.price) AS total
       FROM appointments a
       JOIN services s ON a.service_id = s.id
+      ${where}
       GROUP BY DATE(a.date)
     ),
     product_income AS (
@@ -131,6 +135,7 @@ router.get('/revenue-summary', (_req, res) => {
       FROM appointments a
       JOIN appointment_products ap ON ap.appointment_id = a.id
       JOIN products p ON ap.product_id = p.id
+      ${where}
       GROUP BY DATE(a.date)
     )
     SELECT

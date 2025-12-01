@@ -101,6 +101,14 @@ const state = {
   analyticsPeriod: 'daily',
 };
 
+const INCOME_PERIOD_MAP = {
+  Günlük: 'daily',
+  Haftalık: 'weekly',
+  Aylık: 'monthly',
+};
+
+const getIncomePeriodKey = (label) => INCOME_PERIOD_MAP[label] || 'daily';
+
 const FALLBACK_PRODUCTS = [
   { name: 'Wax / Jöle', price: 120 },
   { name: 'Saç Spreyi', price: 180 },
@@ -281,15 +289,23 @@ function renderAdminPricing() {
         <p class="muted">Müşteri listesinde görünecek.</p>
       </div>
       <input type="number" min="0" step="10" value="${service.price || 0}" data-price="${service.id}" aria-label="${service.name} fiyatı" />
-      <button class="btn save small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+      <div class="pricing-actions">
+        <button class="btn save small" data-save-price="${service.id}" ${disabledAttr}>Kaydet</button>
+        <button class="btn ghost small" data-delete-service="${service.id}" ${disabledAttr}>Sil</button>
+      </div>
     `;
 
     const priceInput = row.querySelector('[data-price]');
     const saveButton = row.querySelector('[data-save-price]');
+    const deleteButton = row.querySelector('[data-delete-service]');
 
     saveButton.addEventListener('click', async () => {
       const newPrice = Number(priceInput.value) || 0;
       await updateServicePrice(service.id, newPrice);
+    });
+
+    deleteButton.addEventListener('click', async () => {
+      await deleteService(service.id);
     });
 
     dom.admin.pricingServices.appendChild(row);
@@ -315,15 +331,23 @@ function renderAdminProductPricing() {
         <p class="muted">Müşteri ürün seçiminde görünecek.</p>
       </div>
       <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
-      <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
+      <div class="pricing-actions">
+        <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
+        <button class="btn ghost small" data-delete-product="${product.id}">Sil</button>
+      </div>
     `;
 
     const priceInput = row.querySelector('[data-product-price]');
     const saveButton = row.querySelector('[data-save-product]');
+    const deleteButton = row.querySelector('[data-delete-product]');
 
     saveButton.addEventListener('click', async () => {
       const newPrice = Number(priceInput.value) || 0;
       await updateProductPrice(product.id, newPrice);
+    });
+
+    deleteButton.addEventListener('click', async () => {
+      await deleteProduct(product.id);
     });
 
     dom.admin.pricingProducts.appendChild(row);
@@ -581,6 +605,30 @@ async function updateProductPrice(id, price) {
   }
 }
 
+async function deleteService(id) {
+  dom.admin.feedback.textContent = 'Hizmet siliniyor...';
+  const result = await safeFetch(`${API_URL}/services/${id}`, { method: 'DELETE' });
+  if (result) {
+    dom.admin.feedback.textContent = 'Hizmet silindi.';
+    await loadServices();
+    if (state.adminLoggedIn) await loadAnalytics();
+  } else {
+    dom.admin.feedback.textContent = 'Hizmet silinemedi.';
+  }
+}
+
+async function deleteProduct(id) {
+  dom.admin.feedback.textContent = 'Ürün siliniyor...';
+  const result = await safeFetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
+  if (result) {
+    dom.admin.feedback.textContent = 'Ürün silindi.';
+    await loadProducts();
+    if (state.adminLoggedIn) await loadAnalytics();
+  } else {
+    dom.admin.feedback.textContent = 'Ürün silinemedi.';
+  }
+}
+
 async function loadPackages() {
   const data = await safeFetch(`${API_URL}/services/packages`);
   const packages = data?.packages ?? [];
@@ -792,16 +840,19 @@ function renderRevenueTable(rows = []) {
   });
 }
 
-async function refreshIncomeData(revenueRows) {
+async function refreshIncomeData(revenueRows, periodLabel = state.selectedIncomePeriod) {
   if (!state.adminLoggedIn) {
     renderIncomeSummary([]);
     renderRevenueTable([]);
     return;
   }
 
+  const periodKey = getIncomePeriodKey(periodLabel);
   const [periods, revenue] = await Promise.all([
     safeFetch(`${API_URL}/reports/revenue-periods`),
-    revenueRows ? Promise.resolve(revenueRows) : safeFetch(`${API_URL}/reports/revenue-summary`),
+    revenueRows
+      ? Promise.resolve(revenueRows)
+      : safeFetch(`${API_URL}/reports/revenue-summary${periodKey ? `?period=${periodKey}` : ''}`),
   ]);
 
   renderRevenueTable(revenue || []);
@@ -841,7 +892,7 @@ async function loadAnalytics() {
   buildList(dom.analytics.peakDays, peakDays);
 
   renderPopularPills(popularServices || []);
-  await refreshIncomeData(revenue);
+  await refreshIncomeData(revenue, state.selectedIncomePeriod);
 }
 
 async function fetchCustomerSchedule() {
