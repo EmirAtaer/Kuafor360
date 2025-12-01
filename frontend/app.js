@@ -80,6 +80,12 @@ const dom = {
   productToggle: document.getElementById('toggle-product-selector'),
 };
 
+// Temizlik: Hizmet fiyatları panelinin altına eklenmiş olabilecek tekrar eden gelir/analiz kartlarını kaldır.
+const adminSidebar = document.querySelector('.admin-sidebar');
+if (adminSidebar) {
+  adminSidebar.querySelectorAll('.revenue-panel, .analytics-panel').forEach((panel) => panel.remove());
+}
+
 const state = {
   screen: 'landing',
   customer: null,
@@ -105,6 +111,17 @@ const INCOME_PERIOD_MAP = {
   Günlük: 'daily',
   Haftalık: 'weekly',
   Aylık: 'monthly',
+};
+
+const isLocalProductId = (id = '') => typeof id === 'string' && (id.startsWith('fallback-') || id.startsWith('local-'));
+
+const getProductKey = (product, index) => {
+  if (product?.id) return product.id;
+  if (product?.name) {
+    const slug = product.name.toLowerCase().replace(/\s+/g, '-');
+    return `fallback-${index ?? 0}-${slug}`;
+  }
+  return `fallback-${index ?? Date.now()}`;
 };
 
 const getIncomePeriodKey = (label) => INCOME_PERIOD_MAP[label] || 'daily';
@@ -322,7 +339,9 @@ function renderAdminProductPricing() {
     return;
   }
 
-  state.products.forEach((product) => {
+  state.products.forEach((product, index) => {
+    const productId = getProductKey(product, index);
+    const disabledAttr = '';
     const row = document.createElement('div');
     row.className = 'pricing-row';
     row.innerHTML = `
@@ -330,10 +349,10 @@ function renderAdminProductPricing() {
         <strong>${product.name}</strong>
         <p class="muted">Müşteri ürün seçiminde görünecek.</p>
       </div>
-      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${product.id}" aria-label="${product.name} fiyatı" />
+      <input type="number" min="0" step="10" value="${product.price || 0}" data-product-price="${productId}" aria-label="${product.name} fiyatı" ${disabledAttr} />
       <div class="pricing-actions">
-        <button class="btn save small" data-save-product="${product.id}">Kaydet</button>
-        <button class="btn ghost small" data-delete-product="${product.id}">Sil</button>
+        <button class="btn save small" data-save-product="${productId}" ${disabledAttr}>Kaydet</button>
+        <button class="btn ghost small" data-delete-product="${productId}" ${disabledAttr}>Sil</button>
       </div>
     `;
 
@@ -393,7 +412,8 @@ function renderProductSelector() {
     return;
   }
 
-  state.products.forEach((product) => {
+  state.products.forEach((product, index) => {
+    const productId = getProductKey(product, index);
     const card = document.createElement('div');
     card.className = 'product-card';
     card.setAttribute('tabindex', '0');
@@ -403,10 +423,10 @@ function renderProductSelector() {
           <strong>${product.name}</strong>
           <p class="price">${formatCurrency(product.price)}</p>
         </div>
-        <input type="checkbox" data-product="${product.id}" aria-label="${product.name} ekle" />
+        <input type="checkbox" data-product="${productId}" aria-label="${product.name} ekle" />
       </header>
       <label>Adet
-        <input type="number" min="1" value="1" data-qty="${product.id}" disabled />
+        <input type="number" min="1" value="1" data-qty="${productId}" disabled />
       </label>
     `;
 
@@ -416,15 +436,15 @@ function renderProductSelector() {
     checkbox.addEventListener('change', () => {
       qtyInput.disabled = !checkbox.checked;
       if (checkbox.checked) {
-        state.selectedProducts[product.id] = Number(qtyInput.value) || 1;
+        state.selectedProducts[productId] = Number(qtyInput.value) || 1;
       } else {
-        delete state.selectedProducts[product.id];
+        delete state.selectedProducts[productId];
       }
     });
 
     qtyInput.addEventListener('input', () => {
       if (checkbox.checked) {
-        state.selectedProducts[product.id] = Math.max(1, Number(qtyInput.value) || 1);
+        state.selectedProducts[productId] = Math.max(1, Number(qtyInput.value) || 1);
       }
     });
 
@@ -555,7 +575,7 @@ async function loadServices() {
 async function loadProducts() {
   let products = await safeFetch(`${API_URL}/products`);
 
-  if (!products?.length) {
+  if (Array.isArray(products) && !products.length) {
     await Promise.all(
       FALLBACK_PRODUCTS.map((product) =>
         safeFetch(`${API_URL}/products`, {
@@ -566,6 +586,13 @@ async function loadProducts() {
       )
     );
     products = await safeFetch(`${API_URL}/products`);
+  }
+
+  if (!products) {
+    products = FALLBACK_PRODUCTS.map((product, index) => ({
+      ...product,
+      id: `fallback-${index}-${product.name.toLowerCase().replace(/\s+/g, '-')}`,
+    }));
   }
 
   state.products = products || [];
@@ -590,6 +617,21 @@ async function updateServicePrice(id, price) {
 }
 
 async function updateProductPrice(id, price) {
+  if (!id) {
+    dom.admin.feedback.textContent = 'Ürün kimliği bulunamadı.';
+    return;
+  }
+
+  if (isLocalProductId(id)) {
+    const targetIndex = state.products.findIndex((product, index) => getProductKey(product, index) === id);
+    if (targetIndex !== -1) {
+      state.products[targetIndex].price = price;
+      dom.admin.feedback.textContent = 'Ürün fiyatı yerel olarak güncellendi.';
+      renderProductSelector();
+      renderAdminProductPricing();
+      return;
+    }
+  }
   dom.admin.feedback.textContent = 'Ürün fiyatı güncelleniyor...';
   const result = await safeFetch(`${API_URL}/products/${id}`, {
     method: 'PUT',
@@ -618,6 +660,18 @@ async function deleteService(id) {
 }
 
 async function deleteProduct(id) {
+  if (!id) {
+    dom.admin.feedback.textContent = 'Ürün kimliği bulunamadı.';
+    return;
+  }
+
+  if (isLocalProductId(id)) {
+    state.products = state.products.filter((product, index) => getProductKey(product, index) !== id);
+    dom.admin.feedback.textContent = 'Ürün yerel listeden silindi.';
+    renderProductSelector();
+    renderAdminProductPricing();
+    return;
+  }
   dom.admin.feedback.textContent = 'Ürün siliniyor...';
   const result = await safeFetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
   if (result) {
@@ -735,7 +789,12 @@ async function handleAddProduct(event) {
     dom.admin.addProductForm?.reset();
     await loadProducts();
   } else {
-    dom.admin.feedback.textContent = 'Ürün eklenemedi.';
+    const localId = `local-${Date.now()}`;
+    state.products = [...state.products, { id: localId, name, price }];
+    dom.admin.feedback.textContent = 'Ürün yerel olarak eklendi.';
+    dom.admin.addProductForm?.reset();
+    renderProductSelector();
+    renderAdminProductPricing();
   }
 }
 
