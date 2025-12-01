@@ -392,32 +392,15 @@ textarea:focus {
   align-items: start;
 }
 
-.admin-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
-}
-
-.admin-insights-row,
-.admin-secondary-row {
+.admin-sidebar {
   display: grid;
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  align-content: start;
 }
 
-.admin-insights-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-}
-
-.admin-secondary-row {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-@media (max-width: 1080px) {
-  .admin-insights-row {
-    grid-template-columns: 1fr;
-  }
+.admin-sidebar .wide {
+  grid-column: span 2;
 }
 
 .schedule-panel {
