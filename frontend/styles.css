@@ -394,21 +394,13 @@ textarea:focus {
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
   align-content: start;
 }
 
 .admin-sidebar .wide {
   grid-column: span 2;
-}
-
-.admin-insights {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  gap: 1.25rem;
-  grid-column: span 2;
-  width: 100%;
 }
 
 .schedule-panel {
