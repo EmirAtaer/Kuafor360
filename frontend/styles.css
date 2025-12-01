@@ -388,7 +388,7 @@ textarea:focus {
 }
 
 .admin-layout {
-  grid-template-columns: minmax(520px, 1.35fr) minmax(420px, 1fr);
+  grid-template-columns: minmax(520px, 1.25fr) minmax(520px, 1fr);
   align-items: start;
 }
 
