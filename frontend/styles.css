@@ -112,7 +112,7 @@ body {
   position: relative;
   z-index: 1;
   padding: clamp(1rem, 2vw, 2.5rem);
-  max-width: 1300px;
+  max-width: 1360px;
   margin: 0 auto;
 }
 
@@ -388,19 +388,28 @@ textarea:focus {
 }
 
 .admin-layout {
-  grid-template-columns: minmax(520px, 1.25fr) minmax(520px, 1fr);
+  grid-template-columns: minmax(560px, 1.6fr) minmax(380px, 1fr);
   align-items: start;
+  gap: 1.5rem;
 }
 
 .admin-sidebar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.1rem;
   align-content: start;
 }
 
 .admin-sidebar .wide {
   grid-column: span 2;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  grid-column: 1 / -1;
 }
 
 .schedule-panel {
@@ -748,7 +757,7 @@ textarea:focus {
 
 .analytics {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.75rem;
 }
 
@@ -800,6 +809,7 @@ textarea:focus {
   background: rgba(2, 6, 23, 0.45);
   display: grid;
   gap: 0.35rem;
+  animation: fadeLift 0.65s ease;
 }
 
 .income-card strong {
@@ -815,6 +825,8 @@ textarea:focus {
   border-radius: 0.9rem;
   padding: 0.75rem;
   background: rgba(2, 6, 23, 0.5);
+  min-height: 100%;
+  animation: fadeLift 0.75s ease;
 }
 
 .income-actions {
@@ -922,11 +934,23 @@ textarea:focus {
   gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 0.75rem;
+  grid-column: 1 / -1;
 }
 
 .analytics-tabs {
   display: inline-flex;
   gap: 0.4rem;
+}
+
+@keyframes fadeLift {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 #revenue-table {
@@ -962,6 +986,11 @@ textarea:focus {
 @media (max-width: 960px) {
   .customer-layout,
   .admin-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .insight-grid {
     grid-template-columns: 1fr;
   }
 
