@@ -392,18 +392,15 @@ textarea:focus {
   align-items: start;
 }
 
-.admin-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
+.admin-sidebar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  align-content: start;
 }
 
-.admin-insights-row,
-.admin-secondary-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.25rem;
+.admin-sidebar .wide {
+  grid-column: span 2;
 }
 
 .schedule-panel {
