@@ -171,21 +171,82 @@
           </div>
         </header>
         <div class="admin-layout">
-          <div class="panel schedule-panel">
-            <div class="schedule-controls">
-              <label>
-                Yönetilen Gün
-                <input type="date" id="admin-date" />
-              </label>
-              <div class="day-actions">
-                <button class="btn danger" id="admin-close-day">Günü kapalı yap</button>
-                <button class="btn ghost" id="admin-open-day">Günü aç</button>
+          <div class="admin-main-column">
+            <div class="panel schedule-panel">
+              <div class="schedule-controls">
+                <label>
+                  Yönetilen Gün
+                  <input type="date" id="admin-date" />
+                </label>
+                <div class="day-actions">
+                  <button class="btn danger" id="admin-close-day">Günü kapalı yap</button>
+                  <button class="btn ghost" id="admin-open-day">Günü aç</button>
+                </div>
               </div>
+              <div id="admin-closed-note" class="alert hidden"></div>
+              <div id="admin-slot-grid" class="slot-grid admin" role="list"></div>
+              <p class="helper">Müsait saatlere tıklayarak bloke edebilir, bloklu saatlere tıklayarak açabilirsiniz.</p>
+              <p class="feedback" id="admin-feedback"></p>
             </div>
-            <div id="admin-closed-note" class="alert hidden"></div>
-            <div id="admin-slot-grid" class="slot-grid admin" role="list"></div>
-            <p class="helper">Müsait saatlere tıklayarak bloke edebilir, bloklu saatlere tıklayarak açabilirsiniz.</p>
-            <p class="feedback" id="admin-feedback"></p>
+            <div class="insight-grid">
+              <article class="panel small revenue-panel">
+                <div class="income-header">
+                  <div>
+                    <h3>Gelir Özeti</h3>
+                    <p class="muted">Günlük, haftalık ve aylık kazançları tek bakışta görün.</p>
+                  </div>
+                  <div class="income-highlight">
+                    <div>
+                      <p class="muted" id="income-period-label">Bugünkü gelir</p>
+                      <strong id="daily-revenue">-</strong>
+                      <p class="muted breakdown">Hizmet: <span id="income-service">-</span> • Ürün: <span id="income-product">-</span></p>
+                    </div>
+                    <div class="income-actions">
+                      <button class="btn primary small" id="refresh-daily-revenue" type="button">Gelirleri güncelle</button>
+                    </div>
+                  </div>
+                  <div id="income-cards" class="income-cards"></div>
+                  <table id="revenue-table">
+                    <thead>
+                      <tr>
+                        <th>Tarih</th>
+                        <th>Hizmet</th>
+                        <th>Ürün</th>
+                        <th>Toplam</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </article>
+                <article class="panel small analytics-panel">
+                  <h3>Analiz Kartları</h3>
+                  <div class="analytics" id="analytics-cards">
+                    <div class="analytics-header">
+                      <div>
+                        <h4>Analiz Kartları</h4>
+                        <p class="muted">Hangi dönem en çok kazandırıyor?</p>
+                      </div>
+                      <div class="analytics-tabs">
+                        <button class="btn tab active" data-analytics-period="daily">Günlük</button>
+                        <button class="btn tab" data-analytics-period="weekly">Haftalık</button>
+                        <button class="btn tab" data-analytics-period="monthly">Aylık</button>
+                      </div>
+                    </div>
+                    <article>
+                      <h4>Popüler Hizmetler</h4>
+                      <ul id="popular-services"></ul>
+                    </article>
+                    <article>
+                      <h4>Popüler Ürünler</h4>
+                      <ul id="popular-products"></ul>
+                    </article>
+                    <article>
+                      <h4>Yoğun Günler</h4>
+                      <ul id="peak-days"></ul>
+                    </article>
+                  </div>
+                </article>
+            </div>
           </div>
           <aside class="admin-sidebar">
             <article class="panel small">
