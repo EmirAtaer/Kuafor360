@@ -672,12 +672,6 @@ textarea:focus {
   gap: 1rem;
 }
 
-.admin-sidebar {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-
 .package-list,
 .extra-list {
   display: flex;
