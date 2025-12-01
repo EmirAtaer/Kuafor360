@@ -66,4 +66,13 @@ router.put('/:id', (req, res) => {
   );
 });
 
+// HİZMET SİL
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('DELETE FROM services WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json({ message: 'Hizmet silindi', affectedRows: result.affectedRows });
+  });
+});
+
 module.exports = router;

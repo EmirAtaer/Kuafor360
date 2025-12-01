@@ -2,6 +2,26 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+const PERIOD_CONDITIONS = {
+  daily: 'DATE(a.date) = CURDATE()',
+  weekly: "YEARWEEK(a.date, 1) = YEARWEEK(CURDATE(), 1)",
+  monthly: 'YEAR(a.date) = YEAR(CURDATE()) AND MONTH(a.date) = MONTH(CURDATE())',
+};
+
+const WEEKDAY_TR_MAP = {
+  Sunday: 'Pazar',
+  Monday: 'Pazartesi',
+  Tuesday: 'Salı',
+  Wednesday: 'Çarşamba',
+  Thursday: 'Perşembe',
+  Friday: 'Cuma',
+  Saturday: 'Cumartesi',
+};
+
+const getDateCondition = (period) => PERIOD_CONDITIONS[period] || '';
+
+const translateWeekday = (weekday) => WEEKDAY_TR_MAP[weekday] || weekday;
+
 // GELİR RAPORU
 router.get('/income', (req, res) => {
   const query = `
@@ -21,10 +41,13 @@ router.get('/income', (req, res) => {
 
 // EN ÇOK TERCİH EDİLEN HİZMETLER
 router.get('/popular-services', (req, res) => {
+  const condition = getDateCondition(req.query.period);
+  const where = condition ? `WHERE ${condition}` : '';
   const query = `
     SELECT s.name, COUNT(a.id) AS count
     FROM appointments a
     JOIN services s ON a.service_id = s.id
+    ${where}
     GROUP BY s.name
     ORDER BY count DESC;
   `;
@@ -35,11 +58,15 @@ router.get('/popular-services', (req, res) => {
 });
 
 // EN ÇOK SATILAN ÜRÜNLER
-router.get('/popular-products', (_req, res) => {
+router.get('/popular-products', (req, res) => {
+  const condition = getDateCondition(req.query.period);
+  const where = condition ? `WHERE ${condition}` : '';
   const query = `
     SELECT p.name, COALESCE(SUM(ap.quantity), 0) AS count
     FROM appointment_products ap
+    JOIN appointments a ON ap.appointment_id = a.id
     JOIN products p ON ap.product_id = p.id
+    ${where}
     GROUP BY p.name
     ORDER BY count DESC;
   `;
@@ -51,17 +78,21 @@ router.get('/popular-products', (_req, res) => {
 });
 
 // HAFTALIK YOĞUN GÜNLER
-router.get('/peak-days', (_req, res) => {
+router.get('/peak-days', (req, res) => {
+  const condition = getDateCondition(req.query.period);
+  const where = condition ? `WHERE ${condition}` : '';
   const query = `
     SELECT DAYNAME(a.date) AS weekday, COUNT(a.id) AS bookings
     FROM appointments a
+    ${where}
     GROUP BY DAYNAME(a.date)
     ORDER BY bookings DESC;
   `;
 
   db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: err });
-    res.json(results);
+    const localized = (results || []).map((row) => ({ ...row, weekday: translateWeekday(row.weekday) }));
+    res.json(localized);
   });
 });
 
@@ -84,15 +115,19 @@ router.get('/peak-times', (_req, res) => {
 });
 
 // HİZMET + ÜRÜN GELİR ÖZETİ
-router.get('/revenue-summary', (_req, res) => {
+router.get('/revenue-summary', (req, res) => {
+  const condition = getDateCondition(req.query.period);
+  const where = condition ? `WHERE ${condition}` : '';
+
   const query = `
     WITH dates AS (
-      SELECT DATE(date) AS date FROM appointments GROUP BY DATE(date)
+      SELECT DATE(a.date) AS date FROM appointments a ${where} GROUP BY DATE(a.date)
     ),
     service_income AS (
       SELECT DATE(a.date) AS date, SUM(s.price) AS total
       FROM appointments a
       JOIN services s ON a.service_id = s.id
+      ${where}
       GROUP BY DATE(a.date)
     ),
     product_income AS (
@@ -100,6 +135,7 @@ router.get('/revenue-summary', (_req, res) => {
       FROM appointments a
       JOIN appointment_products ap ON ap.appointment_id = a.id
       JOIN products p ON ap.product_id = p.id
+      ${where}
       GROUP BY DATE(a.date)
     )
     SELECT

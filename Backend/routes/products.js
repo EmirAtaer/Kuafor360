@@ -57,4 +57,13 @@ router.put('/:id', (req, res) => {
   );
 });
 
+// ÜRÜN SİL
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('DELETE FROM products WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json({ message: 'Ürün silindi', affectedRows: result.affectedRows });
+  });
+});
+
 module.exports = router;
