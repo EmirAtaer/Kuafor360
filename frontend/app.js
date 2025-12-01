@@ -80,6 +80,12 @@ const dom = {
   productToggle: document.getElementById('toggle-product-selector'),
 };
 
+// Temizlik: Hizmet fiyatları panelinin altına eklenmiş olabilecek tekrar eden gelir/analiz kartlarını kaldır.
+const adminSidebar = document.querySelector('.admin-sidebar');
+if (adminSidebar) {
+  adminSidebar.querySelectorAll('.revenue-panel, .analytics-panel').forEach((panel) => panel.remove());
+}
+
 const state = {
   screen: 'landing',
   customer: null,
