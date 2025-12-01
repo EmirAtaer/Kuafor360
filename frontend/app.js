@@ -113,6 +113,17 @@ const INCOME_PERIOD_MAP = {
   Aylık: 'monthly',
 };
 
+const isLocalProductId = (id = '') => typeof id === 'string' && (id.startsWith('fallback-') || id.startsWith('local-'));
+
+const getProductKey = (product, index) => {
+  if (product?.id) return product.id;
+  if (product?.name) {
+    const slug = product.name.toLowerCase().replace(/\s+/g, '-');
+    return `fallback-${index ?? 0}-${slug}`;
+  }
+  return `fallback-${index ?? Date.now()}`;
+};
+
 const getIncomePeriodKey = (label) => INCOME_PERIOD_MAP[label] || 'daily';
 
 const FALLBACK_PRODUCTS = [
@@ -759,7 +770,12 @@ async function handleAddProduct(event) {
     dom.admin.addProductForm?.reset();
     await loadProducts();
   } else {
-    dom.admin.feedback.textContent = 'Ürün eklenemedi.';
+    const localId = `local-${Date.now()}`;
+    state.products = [...state.products, { id: localId, name, price }];
+    dom.admin.feedback.textContent = 'Ürün yerel olarak eklendi.';
+    dom.admin.addProductForm?.reset();
+    renderProductSelector();
+    renderAdminProductPricing();
   }
 }
 
