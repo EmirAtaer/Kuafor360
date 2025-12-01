@@ -860,8 +860,8 @@ async function refreshIncomeData(revenueRows, periodLabel = state.selectedIncome
 }
 
 async function refreshDailyRevenue() {
-  const revenue = await safeFetch(`${API_URL}/reports/revenue-summary?period=${getIncomePeriodKey(state.selectedIncomePeriod)}`);
-  await refreshIncomeData(revenue, state.selectedIncomePeriod);
+  const revenue = await safeFetch(`${API_URL}/reports/revenue-summary`);
+  await refreshIncomeData(revenue);
 }
 
 async function loadAnalytics() {
@@ -871,12 +871,11 @@ async function loadAnalytics() {
   }
   renderAnalyticsPeriodTabs();
   const periodParam = `?period=${state.analyticsPeriod}`;
-  const incomePeriodKey = getIncomePeriodKey(state.selectedIncomePeriod);
   const [popularServices, popularProducts, peakDays, revenue] = await Promise.all([
     safeFetch(`${API_URL}/reports/popular-services${periodParam}`),
     safeFetch(`${API_URL}/reports/popular-products${periodParam}`),
     safeFetch(`${API_URL}/reports/peak-days${periodParam}`),
-    safeFetch(`${API_URL}/reports/revenue-summary?period=${incomePeriodKey}`),
+    safeFetch(`${API_URL}/reports/revenue-summary`),
   ]);
 
   const buildList = (target, list) => {
@@ -1182,7 +1181,11 @@ function attachEvents() {
   dom.analytics.incomeTabs?.forEach((btn) => {
     btn.addEventListener('click', () => {
       state.selectedIncomePeriod = btn.dataset.incomePeriod || 'Günlük';
-      refreshIncomeData(null, state.selectedIncomePeriod);
+      if (!state.incomePeriods.length) {
+        refreshIncomeData();
+      } else {
+        renderIncomeSummary();
+      }
     });
   });
 

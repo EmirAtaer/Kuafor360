@@ -187,8 +187,8 @@
             <p class="helper">Müsait saatlere tıklayarak bloke edebilir, bloklu saatlere tıklayarak açabilirsiniz.</p>
             <p class="feedback" id="admin-feedback"></p>
           </div>
-          <div class="admin-stack">
-            <article class="panel small pricing-panel">
+          <aside class="admin-sidebar">
+            <article class="panel small">
               <h3>Hizmet Fiyatları</h3>
               <p class="muted">Saç, sakal ve paket fiyatlarını yönetip müşteri ekranına yansıtın.</p>
               <form id="admin-add-service" class="add-product inline-form">
@@ -202,6 +202,12 @@
                 </label>
                 <button class="btn save" type="submit">Hizmeti ekle</button>
               </form>
+              <div class="pricing-tabs">
+                <button class="btn tab active" data-pricing-tab="services">Hizmetler</button>
+                <button class="btn tab" data-pricing-tab="products">Ürünler</button>
+              </div>
+              <div id="admin-pricing-services" class="pricing-list scroll-area"></div>
+              <div id="admin-pricing-products" class="pricing-list scroll-area hidden"></div>
               <form id="admin-add-product" class="add-product inline-form hidden">
                 <label>
                   Ürün adı
@@ -220,18 +226,11 @@
               <div id="admin-pricing-services" class="pricing-list scroll-area"></div>
               <div id="admin-pricing-products" class="pricing-list scroll-area hidden"></div>
             </article>
-            <div class="admin-insights-row">
-              <article class="panel small revenue-panel">
-                <div class="income-header">
-                  <div>
-                    <h3>Gelir Özeti</h3>
-                    <p class="muted">Günlük, haftalık ve aylık kazançları tek bakışta görün.</p>
-                  </div>
-                  <div class="income-tabs" id="income-period-tabs">
-                    <button class="btn tab active" data-income-period="Günlük">Günlük</button>
-                    <button class="btn tab" data-income-period="Haftalık">Haftalık</button>
-                    <button class="btn tab" data-income-period="Aylık">Aylık</button>
-                  </div>
+            <article class="panel small revenue-panel">
+              <div class="income-header">
+                <div>
+                  <h3>Gelir Özeti</h3>
+                  <p class="muted">Günlük, haftalık ve aylık kazançları tek bakışta görün.</p>
                 </div>
                 <div class="income-highlight">
                   <div>
@@ -285,17 +284,43 @@
                 </div>
               </article>
             </div>
-            <div class="admin-secondary-row">
-              <article class="panel small">
-                <h3>Günlük Randevular</h3>
-                <ul id="admin-appointments" class="list scroll-area"></ul>
-              </article>
-              <article class="panel small">
-                <h3>Kapalı Günler</h3>
-                <ul id="closed-days-list" class="list"></ul>
-              </article>
-            </div>
-          </div>
+            <article class="panel small">
+              <h3>Günlük Randevular</h3>
+              <ul id="admin-appointments" class="list scroll-area"></ul>
+            </article>
+            <article class="panel small">
+              <h3>Kapalı Günler</h3>
+              <ul id="closed-days-list" class="list"></ul>
+            </article>
+            <article class="panel small">
+              <h3>Analiz Kartları</h3>
+              <div class="analytics" id="analytics-cards">
+                <div class="analytics-header">
+                  <div>
+                    <h4>Analiz Kartları</h4>
+                    <p class="muted">Hangi dönem en çok kazandırıyor?</p>
+                  </div>
+                  <div class="analytics-tabs">
+                    <button class="btn tab active" data-analytics-period="daily">Günlük</button>
+                    <button class="btn tab" data-analytics-period="weekly">Haftalık</button>
+                    <button class="btn tab" data-analytics-period="monthly">Aylık</button>
+                  </div>
+                </div>
+                <article>
+                  <h4>Popüler Hizmetler</h4>
+                  <ul id="popular-services"></ul>
+                </article>
+                <article>
+                  <h4>Popüler Ürünler</h4>
+                  <ul id="popular-products"></ul>
+                </article>
+                <article>
+                  <h4>Yoğun Günler</h4>
+                  <ul id="peak-days"></ul>
+                </article>
+              </div>
+            </article>
+          </aside>
         </div>
       </section>
     </main>
